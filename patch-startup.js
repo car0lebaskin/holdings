@@ -16,6 +16,28 @@ const startupBefore = "if (!S.apiUrl) S.view = S.demo ? 'home' : 'config';";
 const startupAfter = "if (!S.apiUrl) { S.demo = true; store.set('pl_demo','1'); S.view = 'home'; }";
 replaceOnce(startupBefore, startupAfter, 'Startup');
 
+const mobileFixCss = [
+  '',
+  '  /* mobile polish patch */',
+  '  .hero{overflow:hidden}',
+  '  .hero .fig{display:flex;align-items:baseline;gap:10px;white-space:nowrap;font-size:clamp(42px, 14vw, 62px);max-width:100%;overflow:hidden}',
+  '  .hero .fig .c{font-size:clamp(20px, 7vw, 28px);margin-right:0;flex:0 0 auto}',
+  '  .hero .sub{display:grid;grid-template-columns:1fr 1fr 0.82fr;gap:10px}',
+  '  .hero .sub .s{min-width:0;padding:12px}',
+  '  .hero .sub .s b{font-size:clamp(16px, 5vw, 18px);word-break:break-word}',
+  '  #toast{max-width:calc(100vw - 48px);padding:12px 18px;gap:12px;align-items:center;line-height:1.25;text-align:left}',
+  '  #toast .tick{width:26px;height:26px;min-width:26px;flex:0 0 26px;font-size:15px;font-weight:900;line-height:1}',
+  '  @media (max-width:420px){',
+  '    .wrap{padding-left:18px;padding-right:18px}',
+  '    .hero{padding:20px 18px}',
+  '    .hero .sub{gap:8px}',
+  '    .hero .sub .s{border-radius:15px;padding:11px 10px}',
+  '    .hero .sub .s span{font-size:11.5px}',
+  '  }',
+  '',
+].join('\n');
+replaceOnce('</style>', mobileFixCss + '</style>', 'Mobile CSS fixes');
+
 const recentHelpers = [
   'function recentPlayerNames(){',
   '  const seen = new Set();',
@@ -36,6 +58,15 @@ const recentHelpers = [
   '  return out.slice(0, 12);',
   '}',
   '',
+  'function cleanDisplayStakes(value){',
+  "  const v = String(value || '').trim();",
+  "  if (!v) return '';",
+  "  if (/^\\d{4}-\\d{2}-\\d{2}T/.test(v)) return '';",
+  "  if (/^\\d{4}-\\d{2}-\\d{2}/.test(v)) return '';",
+  "  if (v.length > 22) return v.slice(0, 22) + '…';",
+  '  return v;',
+  '}',
+  '',
 ].join('\n');
 replaceOnce('/* home data built from on-device sessions (local mode / no Sheet yet) */', recentHelpers + '/* home data built from on-device sessions (local mode / no Sheet yet) */', 'Recent player helpers');
 
@@ -53,6 +84,9 @@ const healthHelper = [
   '',
 ].join('\n');
 replaceOnce('/* ── SESSION VIEW ── */', healthHelper + '/* ── SESSION VIEW ── */', 'Table health helper');
+
+replaceOnce('  const ses = S.cur.session, cur = ses.currency, t = totals();', "  const ses = S.cur.session, cur = ses.currency, t = totals();\n  const shownStakes = cleanDisplayStakes(ses.stakes);", 'Clean stakes variable');
+replaceOnce('${esc(ses.title)}${ses.stakes?` · ${esc(cur)} ${esc(ses.stakes)}`:\'\'}${guest?\' · watching\':\'\'}', '${esc(ses.title)}${shownStakes?` · ${esc(cur)} ${esc(shownStakes)}`:\'\'}${guest?\' · watching\':\'\'}', 'Hero stakes cleanup');
 
 replaceOnce('    </div>\n\n    ${myBanner}', '    </div>\n\n    ${tableHealthBanner(t, discrepancy, cur)}\n    ${myBanner}', 'Table health placement');
 
@@ -94,4 +128,4 @@ for (const asset of ['icon.svg', 'apple-touch-icon.png']) {
   }
 }
 
-console.log('Patched startup, recent players, table health, and wrote static output to public/.');
+console.log('Patched startup, mobile hero sizing, toast sizing, recent players, table health, and wrote static output to public/.');
