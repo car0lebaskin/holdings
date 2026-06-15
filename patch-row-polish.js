@@ -14,18 +14,68 @@ function replaceMaybe(needle, replacement){
 
 addBefore('</style>', `
   /* player row polish + latest action patch */
-  .player-head{display:flex;align-items:center;gap:8px;justify-content:space-between;min-width:0;margin-bottom:4px}
-  .player-name{font-weight:800;font-size:17px;font-family:var(--display);letter-spacing:-.02em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .player-head .status-chip{margin-left:0;flex:none;padding:5px 10px;font-size:11px}
+  .player-head{
+    display:block!important;
+    min-width:0;
+    margin-bottom:4px;
+  }
+  .player-name{
+    display:block;
+    max-width:100%;
+    font-weight:800;
+    font-size:17px;
+    font-family:var(--display);
+    letter-spacing:-.02em;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    line-height:1.15;
+  }
+  .player-head .status-chip{
+    margin:7px 0 0 0!important;
+    flex:none;
+    padding:5px 10px;
+    font-size:11px;
+    width:max-content;
+    max-width:100%;
+  }
   .chips{display:none!important}
+  .listrow{gap:14px}
+  .listrow .badge{width:56px;height:56px;font-size:20px}
+  .listrow > div[style*="flex:1"]{min-width:0;flex:1 1 auto}
+  .listrow > .btn-gold{
+    flex:0 0 auto!important;
+    width:auto!important;
+    min-width:96px!important;
+    max-width:108px!important;
+    padding:11px 14px!important;
+    font-size:14px!important;
+    text-align:center;
+  }
+  .listrow > .x{
+    flex:0 0 42px!important;
+    width:42px!important;
+    height:42px!important;
+    min-width:42px!important;
+  }
+  @media (max-width:420px){
+    .listrow{gap:11px}
+    .listrow .badge{width:54px;height:54px;font-size:19px}
+    .listrow > .btn-gold{min-width:88px!important;max-width:98px!important;padding:10px 12px!important;font-size:13.5px!important}
+    .listrow > .x{flex-basis:40px!important;width:40px!important;height:40px!important;min-width:40px!important}
+    .player-name{font-size:16.5px}
+  }
   .latest-card{margin-top:14px;padding:14px 18px;border-radius:20px;background:rgba(255,255,255,.045);border:1px solid var(--hairline)}
   .latest-card .k{font-size:12px;color:var(--dim);font-weight:700;margin-bottom:4px}
   .latest-card .v{font-size:14px;line-height:1.45;font-weight:700;color:var(--text)}
 `, 'CSS insert');
 
 const oldNameLine = '${(()=>{ const st = playerStatus(p); return `<div style="font-weight:700;font-size:17px;font-family:var(--display);letter-spacing:-.01em;display:flex;align-items:center;flex-wrap:wrap;gap:4px">${esc(p.name)}${mine?\'<span class="dim" style="font-size:12px;font-weight:600;margin-left:8px">You</span>\':\'\'}<span class="status-chip ${st.cls}">${st.label}</span>${bi.length?`<span class="chips">${dots}</span>`:\'\'}</div>`; })()}';
+const oldNameLine2 = '${(()=>{ const st = playerStatus(p); return `<div class="player-head"><span class="player-name">${esc(p.name)}${mine?\'<span class="dim" style="font-size:12px;font-weight:600;margin-left:8px">You</span>\':\'\'}</span><span class="status-chip ${st.cls}">${st.label}</span></div>`; })()}';
 const newNameLine = '${(()=>{ const st = playerStatus(p); return `<div class="player-head"><span class="player-name">${esc(p.name)}${mine?\'<span class="dim" style="font-size:12px;font-weight:600;margin-left:8px">You</span>\':\'\'}</span><span class="status-chip ${st.cls}">${st.label}</span></div>`; })()}';
 replaceMaybe(oldNameLine, newNameLine);
+replaceMaybe(oldNameLine2, newNameLine);
 
 const latestHelper = `function latestActionCard(cur){
   if (!S.cur || !S.cur.txns || !S.cur.txns.length) return '';
@@ -37,7 +87,7 @@ const latestHelper = `function latestActionCard(cur){
   return '<div class="latest-card"><div class="k">Latest</div><div class="v">' + esc(name) + ' ' + action + ' <span class="num">' + fmt(tx.amountCents,cur) + '</span> · ' + timeStr(tx.createdAt) + '</div></div>';
 }
 `;
-addBefore('/* ── SESSION VIEW ── */', latestHelper, 'Latest helper');
+if (!html.includes('function latestActionCard(cur)')) addBefore('/* ── SESSION VIEW ── */', latestHelper, 'Latest helper');
 replaceMaybe('    ${tableHealthBanner(t, discrepancy, cur)}\n    ${myBanner}', '    ${tableHealthBanner(t, discrepancy, cur)}\n    ${latestActionCard(cur)}\n    ${myBanner}');
 
 const saferClose = `function modalCloseSession(){
@@ -58,9 +108,9 @@ const saferClose = `function modalCloseSession(){
     '<button class="btn-ghost" style="width:100%;margin-top:10px;padding:13px" data-action="close-modal">Keep playing</button>');
 }
 `;
-addBefore('/* ════════════════════ EVENTS ════════════════════ */', saferClose, 'Safer close override');
+if (!html.includes('All players cashed out')) addBefore('/* ════════════════════ EVENTS ════════════════════ */', saferClose, 'Safer close override');
 
 replaceMaybe('Without a Sheet, games are stored on this phone only and will upload automatically once you connect.', 'Without a Sheet, games are stored on this phone only and will upload automatically once you connect. Deleting browser/app data may remove unsynced games.');
 
 fs.writeFileSync(file, html);
-console.log('Patched cleaner player rows, latest action, safer close checklist, and local-data warning.');
+console.log('Patched player row layout so names are no longer squeezed.');
