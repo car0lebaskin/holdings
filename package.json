@@ -1,8 +1,8 @@
 {
   "name": "holdings",
   "private": true,
-  "version": "0.1.5",
+  "version": "0.1.7",
   "scripts": {
-    "build": "node patch-startup.js"
+    "build": "node build-production.js"
   }
 }
