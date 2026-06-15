@@ -140,11 +140,34 @@
   .pill.closed{background:var(--surface2);color:var(--dim)}
 
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+  /* success toast */
+  #toast{position:fixed;left:50%;bottom:96px;transform:translate(-50%,20px);z-index:80;opacity:0;
+    pointer-events:none;transition:opacity .25s, transform .25s;
+    background:var(--up);color:#06140C;font-family:var(--display);font-weight:800;font-size:15px;
+    padding:14px 22px;border-radius:999px;display:flex;align-items:center;gap:10px;
+    box-shadow:0 10px 40px -10px rgba(0,0,0,.6)}
+  #toast.show{opacity:1;transform:translate(-50%,0)}
+  #toast .tick{width:22px;height:22px;border-radius:50%;background:#06140C;color:var(--up);
+    display:flex;align-items:center;justify-content:center;font-size:13px}
+
+  /* bottom tab bar */
+  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;
+    background:rgba(12,12,14,.92);backdrop-filter:blur(14px);border-top:1px solid var(--hairline);
+    padding:8px 6px calc(8px + env(safe-area-inset-bottom))}
+  .tabbar button{flex:1;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;
+    align-items:center;gap:4px;padding:6px 0;color:var(--dim);font-family:var(--display);font-weight:700;font-size:11px}
+  .tabbar button.on{color:var(--accent-hi)}
+  .tabbar svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+  /* empty-state illustration */
+  .empty-art{width:84px;height:84px;margin:0 auto 18px;display:block;opacity:.9}
 </style>
 </head>
 <body>
 <div id="app"></div>
 <div id="modal-root"></div>
+<div id="toast"><span class="tick">✓</span><span id="toast-msg"></span></div>
 
 <script>
 /* ════════════════════════════════════════════════════════════
@@ -167,6 +190,7 @@ const S = {
   apiUrl: store.get('pl_api') || '',
   view: 'home',
   tab: 'table',
+  homeTab: 'home',
   home: { loaded:false, loading:false, error:null, sessions:[], leaderboard:[], history:[] },
   cur: null,
   role: 'host',          // 'host' (writer) | 'guest' (read-only, joined by code)
@@ -215,7 +239,7 @@ function persist(){
 function localBootstrap(){
   const list = Object.values(lsSessions());
   const sessions = list.map(st=>{
-    const bank = st.txns.filter(t=>t.type==='buyin').reduce((a,t)=>a+t.amountCents,0);
+    const bank = st.txns.filter(t=>t.type==='buyin' && !t.voided).reduce((a,t)=>a+t.amountCents,0);
     return { id:st.session.id, title:st.session.title, stakes:st.session.stakes,
       currency:st.session.currency, startedAt:st.session.startedAt, code:st.session.code||'',
       status:st.session.status, playerCount:st.players.length, bankCents:bank };
@@ -226,8 +250,8 @@ function localBootstrap(){
   const history = closed.map(st=>{
     const nets = {};
     st.players.forEach(p=>{
-      const buy = st.txns.filter(t=>t.playerId===p.id && t.type==='buyin').reduce((a,t)=>a+t.amountCents,0);
-      const out = st.txns.filter(t=>t.playerId===p.id && t.type==='cashout').reduce((a,t)=>a+t.amountCents,0);
+      const buy = st.txns.filter(t=>t.playerId===p.id && t.type==='buyin' && !t.voided).reduce((a,t)=>a+t.amountCents,0);
+      const out = st.txns.filter(t=>t.playerId===p.id && t.type==='cashout' && !t.voided).reduce((a,t)=>a+t.amountCents,0);
       if (!buy && !out) return;
       const key = p.name.trim().toLowerCase();
       nets[key] = (nets[key]||0) + (out-buy);
@@ -340,6 +364,7 @@ function normalizeSession(d){
       id: t.txn_id, playerId: t.player_id, type: t.type,
       amountCents: Number(t.amount_cents) || 0,
       createdAt: t.created_at, sig: t.signature || '',
+      voided: String(t.voided||'')==='1', voidedAt: t.voided_at || '',
     })),
   };
 }
@@ -398,9 +423,10 @@ document.addEventListener('visibilitychange', ()=>{ if (!document.hidden && isGu
   apiGet({ action:'byCode', code:S.cur.session.code }).then(d=>{ S.cur=normalizeSession(d); render(); }).catch(()=>{});
 }});
 
-/* ── derived values ── */
-function buyInsOf(pid){ return S.cur.txns.filter(t=>t.playerId===pid && t.type==='buyin'); }
-function cashOutOf(pid){ return S.cur.txns.find(t=>t.playerId===pid && t.type==='cashout') || null; }
+/* ── derived values (voided txns are excluded from all math) ── */
+function buyInsOf(pid){ return S.cur.txns.filter(t=>t.playerId===pid && t.type==='buyin' && !t.voided); }
+function cashOutOf(pid){ return S.cur.txns.find(t=>t.playerId===pid && t.type==='cashout' && !t.voided) || null; }
+function ledgerOf(pid){ return S.cur.txns.filter(t=>t.playerId===pid); } // includes voided, for the audit trail
 function balances(){
   return S.cur.players.map(p=>{
     const buyIn = buyInsOf(p.id).reduce((a,t)=>a+t.amountCents,0);
@@ -446,13 +472,14 @@ function addPlayer(name){
 }
 function addTxn(playerId, type, amountCents, sig){
   const id = uid();
-  S.cur.txns.push({ id, playerId, type, amountCents, createdAt:new Date().toISOString(), sig });
+  S.cur.txns.push({ id, playerId, type, amountCents, createdAt:new Date().toISOString(), sig, voided:false, voidedAt:'' });
   enqueue({ action:'addTxn', id, sessionId:S.cur.session.id, playerId, type, amountCents, signature:sig });
   persist();
 }
-function deleteTxn(txnId){
-  S.cur.txns = S.cur.txns.filter(t=>t.id!==txnId);
-  enqueue({ action:'deleteTxn', id:txnId, sessionId:S.cur.session.id });
+function voidTxn(txnId){
+  const t = S.cur.txns.find(t=>t.id===txnId);
+  if (t){ t.voided = true; t.voidedAt = new Date().toISOString(); }
+  enqueue({ action:'voidTxn', id:txnId, sessionId:S.cur.session.id });
   persist();
 }
 function closeSession(){
@@ -521,6 +548,53 @@ function viewHome(){
   const h = S.home;
   const live = h.sessions.filter(s=>s.status==='live');
   const past = h.sessions.filter(s=>s.status!=='live');
+  const seg = S.homeTab || 'home';
+
+  const homeSection = `
+    <button class="btn" style="margin-top:22px" data-action="new-game">Open a new table</button>
+    ${S.apiUrl ? `<button class="btn-ghost" style="width:100%;margin-top:10px;padding:16px;font-size:15px" data-action="join-game">Join a game with a code</button>` : ''}
+    ${h.loading ? `<p class="dim" style="font-size:13px;margin-top:18px">Loading your ledger…</p>` : ''}
+    ${h.error ? `<div class="banner warn">Couldn't reach your Sheet: ${esc(h.error)}
+      <button class="link" style="display:block;padding-top:6px" data-action="reload-home">Try again</button></div>` : ''}
+    ${live.length ? `<div class="label" style="margin-top:30px">Live tables</div>${live.map(sessionRow).join('')}` : ''}
+    ${h.loaded && !h.sessions.length ? `
+      <div class="card" style="padding:40px 28px;text-align:center;margin-top:20px">
+        <svg class="empty-art" viewBox="0 0 96 96" fill="none">
+          <circle cx="48" cy="48" r="44" stroke="rgba(47,107,255,.25)" stroke-width="2"/>
+          <g fill="rgba(47,107,255,.55)"><polygon points="48,28 30,54 66,54"/><circle cx="40" cy="54" r="11"/><circle cx="56" cy="54" r="11"/><polygon points="46,57 50,57 55,72 41,72"/></g>
+        </svg>
+        <p class="dim" style="font-size:16px;line-height:1.6;margin:0;font-weight:500">
+          The ledger is empty.<br/>Open a table and every buy-in, signature and result is recorded.</p>
+      </div>` : ''}
+    ${h.loaded && h.sessions.length && !live.length ? `
+      <p class="dim" style="font-size:14px;text-align:center;margin-top:28px;font-weight:500">No live tables right now.<br/>Past games and stats are in the tabs below.</p>` : ''}`;
+
+  const statsSection = h.leaderboard.length ? `
+    ${buildChart(h.history, h.leaderboard)}
+    <div class="label" style="margin-top:30px">All-time standings</div>
+    <div class="card" style="padding:8px 20px">
+      ${h.leaderboard.map((p,i)=>`
+        <div class="lrow">
+          <span><span class="rank">${i+1}</span>
+            <b>${esc(p.name)}</b>
+            <span class="dim" style="font-size:12px"> · ${p.sessions} game${p.sessions>1?'s':''}, ${p.wins} won</span></span>
+          <span class="num ${p.netCents>0?'up':p.netCents<0?'down':'dim'}" style="font-weight:700">
+            ${p.netCents===0?'even':signed(p.netCents, 'RM')}</span>
+        </div>`).join('')}
+    </div>` : `<div class="card" style="padding:40px 28px;text-align:center;margin-top:8px">
+      <p class="dim" style="font-size:16px;line-height:1.6;margin:0;font-weight:500">No standings yet.<br/>Close a game and results land here.</p></div>`;
+
+  const historySection = past.length
+    ? `<div class="label" style="margin-top:8px">Past games</div>${past.map(sessionRow).join('')}`
+    : `<div class="card" style="padding:40px 28px;text-align:center;margin-top:8px">
+        <p class="dim" style="font-size:16px;line-height:1.6;margin:0;font-weight:500">No closed games yet.</p></div>`;
+
+  const IC = {
+    home: '<svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>',
+    stats:'<svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 15l5-5 4 3 6-7"/></svg>',
+    hist: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  };
+
   return `<div class="wrap">
     <div class="row">
       <div class="brand">${SPADE}<span class="name">Holdings</span></div>
@@ -529,40 +603,13 @@ function viewHome(){
     ${syncBanner()}
     ${!S.apiUrl && !S.queue.length ? `<p class="dim" style="font-size:12px;margin:12px 0 0">Local mode — games stay on this phone until you connect a Sheet (⚙).</p>` : ''}
 
-    <button class="btn" style="margin-top:22px" data-action="new-game">Open a new table</button>
-    ${S.apiUrl ? `<button class="btn-ghost" style="width:100%;margin-top:10px;padding:16px;font-size:15px" data-action="join-game">Join a game with a code</button>` : ''}
-
-    ${h.loading ? `<p class="dim" style="font-size:13px;margin-top:18px">Loading your ledger…</p>` : ''}
-    ${h.error ? `<div class="banner warn">Couldn't reach your Sheet: ${esc(h.error)}
-      <button class="link" style="display:block;padding-top:6px" data-action="reload-home">Try again</button></div>` : ''}
-
-    ${live.length ? `<div class="label" style="margin-top:30px">Live tables</div>` : ''}
-    ${live.map(sessionRow).join('')}
-
-    ${buildChart(h.history, h.leaderboard)}
-
-    ${h.leaderboard.length ? `
-      <div class="label" style="margin-top:30px">All-time standings</div>
-      <div class="card" style="padding:8px 20px">
-        ${h.leaderboard.map((p,i)=>`
-          <div class="lrow">
-            <span><span class="rank">${i+1}</span>
-              <b>${esc(p.name)}</b>
-              <span class="dim" style="font-size:12px"> · ${p.sessions} game${p.sessions>1?'s':''}, ${p.wins} won</span></span>
-            <span class="num ${p.netCents>0?'up':p.netCents<0?'down':'dim'}" style="font-weight:700">
-              ${p.netCents===0?'even':signed(p.netCents, 'RM')}</span>
-          </div>`).join('')}
-      </div>` : ''}
-
-    ${past.length ? `<div class="label" style="margin-top:30px">Past games</div>` : ''}
-    ${past.map(sessionRow).join('')}
-
-    ${h.loaded && !h.sessions.length ? `
-      <div class="card" style="padding:40px 28px;text-align:center;margin-top:20px">
-        <p class="dim" style="font-size:16px;line-height:1.6;margin:0;font-weight:500">
-          The ledger is empty.<br/>Open a table and every buy-in, signature and result is recorded.</p>
-      </div>` : ''}
-  </div>`;
+    ${seg==='home' ? homeSection : seg==='stats' ? statsSection : historySection}
+  </div>
+  <nav class="tabbar">
+    <button class="${seg==='home'?'on':''}" data-action="home-tab" data-seg="home">${IC.home}Home</button>
+    <button class="${seg==='stats'?'on':''}" data-action="home-tab" data-seg="stats">${IC.stats}Stats</button>
+    <button class="${seg==='history'?'on':''}" data-action="home-tab" data-seg="history">${IC.hist}History</button>
+  </nav>`;
 }
 
 function sessionRow(s){
@@ -751,7 +798,12 @@ function tabTable(closed){
   if (guest) return `${S.cur.players.length===0?`<div class="card" style="padding:40px 28px;text-align:center"><p class="dim" style="font-size:16px;margin:0;font-weight:500">Waiting for the host to seat players…</p></div>`:cards}`;
 
   return `
-    ${S.cur.players.length===0?`<div class="card" style="padding:40px 28px;text-align:center"><p class="dim" style="font-size:16px;line-height:1.6;margin:0;font-weight:500">The table is empty.<br/>Seat the first player to start taking buy-ins.</p></div>`:''}
+    ${S.cur.players.length===0?`<div class="card" style="padding:40px 28px;text-align:center">
+      <svg class="empty-art" viewBox="0 0 96 96" fill="none">
+        <circle cx="48" cy="48" r="44" stroke="rgba(47,107,255,.25)" stroke-width="2"/>
+        <g fill="rgba(47,107,255,.55)"><polygon points="48,28 30,54 66,54"/><circle cx="40" cy="54" r="11"/><circle cx="56" cy="54" r="11"/><polygon points="46,57 50,57 55,72 41,72"/></g>
+      </svg>
+      <p class="dim" style="font-size:16px;line-height:1.6;margin:0;font-weight:500">The table is empty.<br/>Seat the first player to start taking buy-ins.</p></div>`:''}
     ${cards}
     ${!closed?`<button class="btn-ghost" style="width:100%;margin-top:4px;padding:18px;font-size:16px" data-action="add-player">+ Seat a player</button>`:''}
   `;
@@ -832,6 +884,16 @@ function openModal(title, bodyHtml){
   </div>`;
 }
 function closeModal(){ modalRoot.innerHTML=''; }
+
+let toastTimer=null;
+function toast(msg){
+  const el = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  el.classList.add('show');
+  if (navigator.vibrate) { try{ navigator.vibrate(12); }catch(_){ } }
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 1900);
+}
 
 /* big Wise-style amount field + quick amounts */
 function amtFieldHtml(id, cur, value, placeholder, quicks){
@@ -1009,17 +1071,17 @@ function modalLedger(playerId){
   const p = S.cur.players.find(x=>x.id===playerId);
   const cur = S.cur.session.currency;
   const closed = S.cur.session.status==='closed';
-  const bi = buyInsOf(playerId);
-  const co = cashOutOf(playerId);
+  const all = ledgerOf(playerId).filter(t=>t.type==='buyin'); // include voided for the audit trail
+  const co = S.cur.txns.find(t=>t.playerId===playerId && t.type==='cashout' && !t.voided) || null;
   openModal(`${esc(p.name)} — ledger`, `
-    ${bi.map(t=>`
-      <div style="border:1px solid var(--hairline);border-radius:14px;padding:14px;margin-bottom:10px">
+    ${all.map(t=>`
+      <div style="border:1px solid ${t.voided?'rgba(255,107,74,.3)':'var(--hairline)'};border-radius:14px;padding:14px;margin-bottom:10px;${t.voided?'opacity:.7':''}">
         <div class="row">
-          <span class="num" style="font-weight:700;font-size:16px">${fmt(t.amountCents,cur)}</span>
-          <span class="dim" style="font-size:12px">${timeStr(t.createdAt)}</span>
+          <span class="num" style="font-weight:700;font-size:16px;${t.voided?'text-decoration:line-through;color:var(--dim)':''}">${fmt(t.amountCents,cur)}</span>
+          <span class="dim" style="font-size:12px">${t.voided?`<span class="down" style="font-weight:700">VOIDED</span> · ${timeStr(t.voidedAt||t.createdAt)}`:timeStr(t.createdAt)}</span>
         </div>
-        ${t.sig?`<img class="sig-img" src="${t.sig}" alt="signature" />`:''}
-        ${!isGuest() && !closed?`<button class="link" data-action="delete-buyin" data-id="${t.id}" data-player="${playerId}">Remove this buy-in</button>`:''}
+        ${t.sig?`<img class="sig-img" src="${t.sig}" alt="signature" style="${t.voided?'opacity:.5':''}" />`:''}
+        ${!isGuest() && !closed && !t.voided?`<button class="link" style="color:var(--down)" data-action="void-buyin" data-id="${t.id}" data-player="${playerId}">Void this buy-in</button>`:''}
       </div>`).join('')}
     ${co?`
       <div style="border:1px solid var(--hairline);border-radius:14px;padding:14px">
@@ -1027,6 +1089,7 @@ function modalLedger(playerId){
           <span class="num" style="font-weight:700">${fmt(co.amountCents,cur)}</span></div>
         ${co.sig?`<img class="sig-img" src="${co.sig}" alt="cash-out signature" />`:''}
       </div>`:''}
+    <p class="dim" style="font-size:12px;line-height:1.5;margin:14px 0 0">Voided buy-ins stay on the record and are excluded from the bank — nothing is ever silently deleted.</p>
   `);
 }
 
@@ -1099,6 +1162,7 @@ document.addEventListener('click', async (e)=>{
     if (inp){ inp.value = el.dataset.val; inp.dispatchEvent(new Event('input')); }
     return;
   }
+  if (a==='home-tab'){ S.homeTab = el.dataset.seg; render(); return; }
   if (a==='retry-sync'){ flush(); return; }
   if (a==='reload-home'){ stopPoll(); S.role='host'; S.view='home'; render(); loadHome(); return; }
   if (a==='back-home'){ stopPoll(); S.role='host'; S.view='home'; S.home.loaded=false; render(); loadHome(); return; }
@@ -1146,25 +1210,25 @@ document.addEventListener('click', async (e)=>{
   if (a==='buyin'){ modalBuyIn(el.dataset.id); return; }
   if (a==='confirm-buyin'){
     const c = toC(document.getElementById('bi-amount').value);
-    if (c && c>0 && sigData){ addTxn(el.dataset.id, 'buyin', c, sigData); closeModal(); render(); }
+    if (c && c>0 && sigData){ const p=S.cur.players.find(x=>x.id===el.dataset.id); addTxn(el.dataset.id, 'buyin', c, sigData); closeModal(); render(); toast(`${p?p.name.split(' ')[0]:'Buy-in'} in for ${fmt(c,S.cur.session.currency)}`); }
     return;
   }
   if (a==='cashout'){ modalCashOut(el.dataset.id); return; }
   if (a==='confirm-cashout'){
     const c = toC(document.getElementById('co-amount').value);
-    if (c!==null && c>=0 && sigData){ addTxn(el.dataset.id, 'cashout', c, sigData); closeModal(); render(); }
+    if (c!==null && c>=0 && sigData){ const p=S.cur.players.find(x=>x.id===el.dataset.id); addTxn(el.dataset.id, 'cashout', c, sigData); closeModal(); render(); toast(`${p?p.name.split(' ')[0]:'Player'} cashed out`); }
     return;
   }
   if (a==='clear-sig'){ sigPad && sigPad.clear(); return; }
   if (a==='undo-cashout'){
     const co = cashOutOf(el.dataset.id);
-    if (co) { deleteTxn(co.id); render(); }
+    if (co) { voidTxn(co.id); render(); }
     return;
   }
   if (a==='ledger'){ modalLedger(el.dataset.id); return; }
-  if (a==='delete-buyin'){
-    if (el.dataset.confirmed){ deleteTxn(el.dataset.id); closeModal(); render(); }
-    else { el.dataset.confirmed='1'; el.textContent='Tap again to delete'; el.style.color='var(--down)'; }
+  if (a==='void-buyin'){
+    if (el.dataset.confirmed){ voidTxn(el.dataset.id); modalLedger(el.dataset.player); toast('Buy-in voided'); }
+    else { el.dataset.confirmed='1'; el.textContent='Tap again to void'; el.style.fontWeight='700'; }
     return;
   }
   if (a==='export'){ modalExport(); return; }
