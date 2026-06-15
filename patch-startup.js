@@ -18,21 +18,29 @@ replaceOnce(startupBefore, startupAfter, 'Startup');
 
 const mobileFixCss = [
   '',
-  '  /* mobile polish patch */',
+  '  /* mobile polish patch v2 */',
   '  .hero{overflow:hidden}',
-  '  .hero .fig{display:flex;align-items:baseline;gap:10px;white-space:nowrap;font-size:clamp(42px, 14vw, 62px);max-width:100%;overflow:hidden}',
-  '  .hero .fig .c{font-size:clamp(20px, 7vw, 28px);margin-right:0;flex:0 0 auto}',
-  '  .hero .sub{display:grid;grid-template-columns:1fr 1fr 0.82fr;gap:10px}',
-  '  .hero .sub .s{min-width:0;padding:12px}',
-  '  .hero .sub .s b{font-size:clamp(16px, 5vw, 18px);word-break:break-word}',
-  '  #toast{max-width:calc(100vw - 48px);padding:12px 18px;gap:12px;align-items:center;line-height:1.25;text-align:left}',
-  '  #toast .tick{width:26px;height:26px;min-width:26px;flex:0 0 26px;font-size:15px;font-weight:900;line-height:1}',
+  '  .hero .eyebrow{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+  '  .hero .fig{display:flex;align-items:baseline;gap:8px;white-space:nowrap;font-size:clamp(34px, 10.4vw, 54px);max-width:100%;overflow:hidden;letter-spacing:-.06em}',
+  '  .hero .fig .c{font-size:clamp(17px, 5.3vw, 24px);margin-right:0;flex:0 0 auto;letter-spacing:-.04em}',
+  '  .hero .sub{display:grid;grid-template-columns:1fr 1fr .82fr;gap:8px}',
+  '  .hero .sub .s{min-width:0;padding:11px 10px;border-radius:15px}',
+  '  .hero .sub .s span{font-size:11.5px;line-height:1.35}',
+  '  .hero .sub .s b{font-size:clamp(15px, 4.2vw, 17px);line-height:1.2;word-break:break-word;letter-spacing:-.04em}',
+  '  #toast{max-width:calc(100vw - 56px);min-height:54px;padding:11px 18px;gap:12px;align-items:center;line-height:1.2;text-align:left;white-space:normal}',
+  '  #toast .tick{width:24px;height:24px;min-width:24px;flex:0 0 24px;font-size:14px;font-weight:900;line-height:24px;display:flex;align-items:center;justify-content:center}',
   '  @media (max-width:420px){',
   '    .wrap{padding-left:18px;padding-right:18px}',
   '    .hero{padding:20px 18px}',
-  '    .hero .sub{gap:8px}',
-  '    .hero .sub .s{border-radius:15px;padding:11px 10px}',
-  '    .hero .sub .s span{font-size:11.5px}',
+  '    .hero .fig{font-size:clamp(32px, 10vw, 46px);gap:7px}',
+  '    .hero .fig .c{font-size:clamp(16px, 5vw, 22px)}',
+  '  }',
+  '  @media (max-width:360px){',
+  '    .hero{padding:18px 15px}',
+  '    .hero .fig{font-size:34px;gap:6px}',
+  '    .hero .fig .c{font-size:17px}',
+  '    .hero .sub{gap:6px}',
+  '    .hero .sub .s{padding:10px 8px}',
   '  }',
   '',
 ].join('\n');
@@ -61,9 +69,9 @@ const recentHelpers = [
   'function cleanDisplayStakes(value){',
   "  const v = String(value || '').trim();",
   "  if (!v) return '';",
-  "  if (/^\\d{4}-\\d{2}-\\d{2}T/.test(v)) return '';",
-  "  if (/^\\d{4}-\\d{2}-\\d{2}/.test(v)) return '';",
-  "  if (v.length > 22) return v.slice(0, 22) + '…';",
+  "  if (/\\d{4}-\\d{2}-\\d{2}/.test(v)) return '';",
+  "  if (/T\\d{2}:\\d{2}:\\d{2}/.test(v)) return '';",
+  "  if (v.length > 14) return v.slice(0, 14) + '…';",
   '  return v;',
   '}',
   '',
@@ -86,7 +94,7 @@ const healthHelper = [
 replaceOnce('/* ── SESSION VIEW ── */', healthHelper + '/* ── SESSION VIEW ── */', 'Table health helper');
 
 replaceOnce('  const ses = S.cur.session, cur = ses.currency, t = totals();', "  const ses = S.cur.session, cur = ses.currency, t = totals();\n  const shownStakes = cleanDisplayStakes(ses.stakes);", 'Clean stakes variable');
-replaceOnce('${esc(ses.title)}${ses.stakes?` · ${esc(cur)} ${esc(ses.stakes)}`:\'\'}${guest?\' · watching\':\'\'}', '${esc(ses.title)}${shownStakes?` · ${esc(cur)} ${esc(shownStakes)}`:\'\'}${guest?\' · watching\':\'\'}', 'Hero stakes cleanup');
+html = html.replace('${esc(ses.title)}${ses.stakes?` · ${esc(cur)} ${esc(ses.stakes)}`:\'\'}${guest?\' · watching\':\'\'}', '${esc(ses.title)}${shownStakes?` · ${esc(cur)} ${esc(shownStakes)}`:\'\'}${guest?\' · watching\':\'\'}');
 
 replaceOnce('    </div>\n\n    ${myBanner}', '    </div>\n\n    ${tableHealthBanner(t, discrepancy, cur)}\n    ${myBanner}', 'Table health placement');
 
@@ -128,4 +136,4 @@ for (const asset of ['icon.svg', 'apple-touch-icon.png']) {
   }
 }
 
-console.log('Patched startup, mobile hero sizing, toast sizing, recent players, table health, and wrote static output to public/.');
+console.log('Patched startup, stronger mobile hero sizing, toast sizing, recent players, table health, and wrote static output to public/.');
