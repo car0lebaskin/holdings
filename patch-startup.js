@@ -27,6 +27,11 @@ const mobileFixCss = [
   '  .hero .sub .s{min-width:0;padding:11px 10px;border-radius:15px}',
   '  .hero .sub .s span{font-size:11.5px;line-height:1.35}',
   '  .hero .sub .s b{font-size:clamp(15px, 4.2vw, 17px);line-height:1.2;word-break:break-word;letter-spacing:-.04em}',
+  '  .action-card{margin-top:12px;padding:18px 20px;cursor:pointer;transition:transform .12s ease, border-color .12s ease}',
+  '  .action-card:active{transform:scale(.985);border-color:rgba(91,140,255,.45)}',
+  '  .action-card .title{font-family:var(--display);font-size:23px;font-weight:900;letter-spacing:-.035em;color:var(--text)}',
+  '  .action-card .subcopy{font-size:14px;color:var(--dim);line-height:1.45;margin-top:4px;font-weight:500}',
+  '  .action-card .arrow{width:42px;height:42px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--accent-hi);flex:none}',
   '  #toast{max-width:calc(100vw - 56px);min-height:54px;padding:11px 18px;gap:12px;align-items:center;line-height:1.2;text-align:left;white-space:normal}',
   '  #toast .tick{width:24px;height:24px;min-width:24px;flex:0 0 24px;font-size:14px;font-weight:900;line-height:24px;display:flex;align-items:center;justify-content:center}',
   '  @media (max-width:420px){',
@@ -100,6 +105,12 @@ replaceOnce('    </div>\n\n    ${myBanner}', '    </div>\n\n    ${tableHealthBan
 
 html = html.replace(/\n    \$\{discrepancy!==null && discrepancy!==0 \? `<div class="banner warn">[\s\S]*?\n    \$\{discrepancy===0 \? `<div class="banner ok">Bank reconciled — every chip accounted for\.<\/div>` : ''\}/, '');
 
+const oldHomeActions = "    <button class=\"btn\" style=\"margin-top:22px\" data-action=\"new-game\">Open a new table</button>\n    ${S.apiUrl ? `<button class=\"btn-ghost\" style=\"width:100%;margin-top:10px;padding:16px;font-size:15px\" data-action=\"join-game\">Join a game with a code</button>` : ''}";
+const newHomeActions = "    <button class=\"btn\" style=\"margin-top:22px\" data-action=\"new-game\">Start game</button>\n    <div class=\"card action-card row\" data-action=\"join-game\">\n      <div>\n        <div class=\"title\">Join game</div>\n        <div class=\"subcopy\">Enter a 5-digit table code</div>\n      </div>\n      <div class=\"arrow\">→</div>\n    </div>";
+replaceOnce(oldHomeActions, newHomeActions, 'Home action hierarchy');
+
+replaceOnce("  if (a==='join-game'){ modalJoinGame(); return; }", "  if (a==='join-game'){\n    if (!S.apiUrl){ S.view='config'; render(); const msg=document.getElementById('cfg-msg'); if(msg) msg.innerHTML='<span class=\"down\">Connect cloud sync first to join a live game by code.</span>'; return; }\n    modalJoinGame(); return;\n  }", 'Join game cloud guard');
+
 const newAddPlayer = [
   'function modalAddPlayer(){',
   "  const current = new Set((S.cur?.players || []).map(p => String(p.name || '').trim().toLowerCase()));",
@@ -136,4 +147,4 @@ for (const asset of ['icon.svg', 'apple-touch-icon.png']) {
   }
 }
 
-console.log('Patched startup, stronger mobile hero sizing, toast sizing, recent players, table health, and wrote static output to public/.');
+console.log('Patched startup, mobile UI, Wise home actions, recent players, table health, and wrote static output to public/.');
