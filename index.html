@@ -1,0 +1,1187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#08080C" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>Holdings — private ledger for the home game</title>
+<link rel="icon" type="image/svg+xml" href="./icon.svg" />
+<link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0A0A0A; --surface:#17171B; --surface2:#1F1F24; --field:#0E0E11;
+    --line:#2A2A2C; --hairline:rgba(255,255,255,.08);
+    --text:#FFFFFF; --dim:#9D9DA3; --faint:#5C5C63;
+    --accent:#2F6BFF; --accent-hi:#5B8CFF; --accent-lo:#1E4FE0;
+    --on-accent:#FFFFFF;
+    --up:#3FD98B; --up-dim:rgba(63,217,139,.12);
+    --down:#FF6B4A; --down-dim:rgba(255,107,74,.12);
+    --display:'Inter Tight','Inter',system-ui,sans-serif;
+    --sans:'Inter',system-ui,sans-serif;
+    --strong:'Inter Tight','Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;font-size:15px}
+  .wrap{position:relative;z-index:1;max-width:560px;margin:0 auto;padding:20px 20px 120px}
+  h1,h2,h3{margin:0}
+  .serif{font-family:var(--display);font-weight:800;letter-spacing:-.03em}
+  .num{font-family:var(--display);font-variant-numeric:tabular-nums;font-feature-settings:'tnum';letter-spacing:-.02em}
+  .dim{color:var(--dim)} .up{color:var(--up)} .down{color:var(--down)} .gold{color:var(--accent-hi)}
+
+  /* wordmark */
+  .brand{display:flex;align-items:center;gap:11px}
+  .brand svg{width:34px;height:34px;flex:none}
+  .brand .name{font-family:var(--display);font-weight:900;font-size:26px;letter-spacing:-.04em}
+  .eyebrow{font-size:12px;letter-spacing:.01em;color:var(--dim);font-weight:600;font-family:var(--sans)}
+
+  .card{background:var(--surface);border:1px solid var(--hairline);border-radius:26px}
+  .label{display:block;font-size:13px;color:var(--dim);margin-bottom:10px;font-weight:600;font-family:var(--sans)}
+
+  .input{width:100%;background:var(--field);border:1.5px solid var(--line);border-radius:16px;color:var(--text);
+    padding:16px 18px;font-size:17px;font-family:var(--display);outline:none;font-weight:600}
+  .input:focus,textarea:focus{border-color:var(--accent)}
+  .input::placeholder{color:var(--faint)}
+  /* big bold text input — the distinctive Wise look */
+  .input-lg{width:100%;background:var(--field);border:1.5px solid var(--line);border-radius:18px;color:var(--text);
+    padding:16px 18px;font-size:26px;font-family:var(--display);outline:none;font-weight:800;letter-spacing:-.02em}
+  .input-lg:focus{border-color:var(--accent)}
+  .input-lg::placeholder{color:var(--faint);font-weight:700}
+  textarea{width:100%;background:var(--field);border:1.5px solid var(--line);border-radius:16px;color:var(--text);padding:16px 18px;outline:none}
+
+  /* Wise-style giant full-width amount */
+  .amt{display:flex;align-items:baseline;gap:10px;border-bottom:2px solid var(--line);padding:4px 2px 12px}
+  .amt:focus-within{border-color:var(--accent)}
+  .amt .cur{font-family:var(--display);font-weight:800;font-size:30px;color:var(--dim);flex:none}
+  .amt input{flex:1;min-width:0;width:100%;background:none;border:none;outline:none;color:var(--accent-hi);
+    font-family:var(--display);font-weight:900;font-size:68px;padding:0;font-variant-numeric:tabular-nums;
+    letter-spacing:-.05em;line-height:1.1;text-align:right}
+  .amt input::placeholder{color:#262630;font-weight:900}
+  .quick{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+  .quick button{background:var(--surface2);border:none;color:var(--text);border-radius:999px;
+    padding:13px 20px;font-size:15px;font-weight:700;font-family:var(--display);cursor:pointer}
+  .quick button:active{background:var(--accent);color:#fff}
+
+  /* buttons — big and pill */
+  .btn{display:block;width:100%;border:none;border-radius:999px;padding:21px 22px;cursor:pointer;
+    font-size:18px;font-weight:800;font-family:var(--display);letter-spacing:-.01em;color:var(--on-accent);
+    background:var(--accent)}
+  .btn:active{background:var(--accent-lo)}
+  .btn[disabled]{background:var(--surface2);color:var(--faint);cursor:default}
+  .btn-ghost{background:var(--surface2);color:var(--text);border:none;border-radius:999px;
+    padding:14px 22px;font-size:15px;font-weight:700;font-family:var(--display);cursor:pointer}
+  .btn-gold{background:rgba(47,107,255,.16);color:var(--accent-hi)}
+  .btn-danger{background:rgba(255,107,74,.16);color:var(--down)}
+  .link{background:none;border:none;color:var(--accent-hi);font-size:14px;cursor:pointer;padding:8px 0 0;font-family:var(--sans);font-weight:600}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .row{display:flex;justify-content:space-between;align-items:center}
+
+  /* big circular icon badge (Wise rows) */
+  .badge{width:52px;height:52px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;
+    font-family:var(--display);font-weight:800;font-size:19px;background:var(--surface2);color:var(--text)}
+  .badge.accent{background:var(--accent);color:#fff}
+  .badge.up{background:var(--up-dim);color:var(--up)}
+  .badge.down{background:var(--down-dim);color:var(--down)}
+  .listrow{display:flex;align-items:center;gap:16px;padding:16px 0}
+
+  /* hero amount — its own tinted accent card (contained gradient) */
+  .hero{padding:22px 22px 20px;border-radius:26px;
+    background:linear-gradient(155deg, rgba(47,107,255,.22), rgba(47,107,255,.05) 55%, rgba(47,107,255,0) 100%), var(--surface);
+    border:1px solid rgba(47,107,255,.28)}
+  .hero .eyebrow{display:block;margin-bottom:10px;font-size:14px;font-weight:600;color:#B9C8FF}
+  .hero .fig{font-family:var(--display);font-weight:900;font-size:62px;letter-spacing:-.05em;
+    font-variant-numeric:tabular-nums;line-height:.95;color:#fff}
+  .hero .fig .c{font-size:28px;font-weight:800;color:#9FB4FF;margin-right:10px;letter-spacing:-.03em}
+  .hero .sub{display:flex;gap:10px;margin-top:22px}
+  .hero .sub .s{flex:1;background:rgba(0,0,0,.28);border-radius:16px;padding:13px 14px}
+  .hero .sub .s span{font-size:12px;color:#AEB7D6;font-weight:500}
+  .hero .sub .s b{display:block;font-family:var(--display);font-weight:800;font-size:18px;color:#fff;
+    font-variant-numeric:tabular-nums;margin-top:5px;letter-spacing:-.03em}
+
+  .banner{margin-top:14px;padding:15px 18px;border-radius:18px;font-size:14px;line-height:1.5;font-weight:500}
+  .banner.ok{background:var(--up-dim);color:var(--up)}
+  .banner.warn{background:var(--down-dim);color:var(--down)}
+  .banner.sync{background:rgba(47,107,255,.12);color:var(--accent-hi)}
+
+  /* segmented tabs */
+  nav.tabs{display:flex;gap:6px;margin-top:22px;background:var(--surface);border-radius:999px;padding:5px}
+  nav.tabs button{flex:1;background:none;border:none;border-radius:999px;color:var(--dim);
+    padding:13px 6px;font-size:14.5px;font-weight:700;cursor:pointer;font-family:var(--display);letter-spacing:-.01em}
+  nav.tabs button.on{color:#fff;background:var(--accent)}
+
+  .chips{display:inline-flex;gap:4px;margin-left:8px;align-items:center}
+  .chips i{width:7px;height:7px;border-radius:50%;background:var(--accent-hi);display:inline-block}
+
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(10px);display:flex;
+    align-items:flex-end;justify-content:center;z-index:50;padding:0}
+  .modal{background:var(--surface);border-top:1px solid var(--hairline);border-radius:28px 28px 0 0;width:100%;max-width:560px;
+    padding:26px 22px calc(26px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto}
+  .modal h3{font-family:var(--display);font-size:24px;font-weight:800;letter-spacing:-.03em}
+  .x{background:var(--surface2);border:none;color:var(--text);font-size:20px;cursor:pointer;line-height:1;
+    width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+
+  .sig-box{position:relative;border:1.5px dashed var(--line);border-radius:18px;background:var(--field)}
+  .sig-box canvas{width:100%;height:160px;display:block;touch-action:none;cursor:crosshair}
+  .sig-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--faint);
+    font-size:14px;pointer-events:none}
+  .sig-img{width:100%;height:60px;object-fit:contain;margin-top:8px;background:var(--field);border-radius:12px}
+
+  .lrow{display:flex;justify-content:space-between;align-items:center;padding:18px 0;border-bottom:1px solid var(--hairline);font-size:16px;font-weight:600}
+  .lrow:last-child{border-bottom:none}
+  .rank{font-family:var(--display);font-weight:800;color:var(--dim);font-size:17px;width:30px;display:inline-block}
+
+  .pill{font-size:12px;letter-spacing:0;font-weight:700;padding:6px 13px;border-radius:999px;font-family:var(--display)}
+  .pill.live{background:var(--up-dim);color:var(--up)}
+  .pill.closed{background:var(--surface2);color:var(--dim)}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal-root"></div>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   HOLDINGS — private ledger for the home game
+   Backend: Google Apps Script + Google Sheets (see Code.gs)
+   ════════════════════════════════════════════════════════════ */
+
+const SPADE = `<svg viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5B8CFF"/><stop offset="1" stop-color="#1E4FE0"/></linearGradient></defs><g fill="url(#g)"><polygon points="256,108 120,300 392,300"/><circle cx="188" cy="300" r="72"/><circle cx="324" cy="300" r="72"/><polygon points="246,316 266,316 306,432 206,432"/></g></svg>`;
+
+/* ── safe localStorage ── */
+const mem = {};
+const store = {
+  get(k){ try{ return localStorage.getItem(k); }catch(e){ return mem[k] ?? null; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){ mem[k]=v; } },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){ delete mem[k]; } },
+};
+
+/* ── app state ── */
+const S = {
+  apiUrl: store.get('pl_api') || '',
+  view: 'home',
+  tab: 'table',
+  home: { loaded:false, loading:false, error:null, sessions:[], leaderboard:[], history:[] },
+  cur: null,
+  role: 'host',          // 'host' (writer) | 'guest' (read-only, joined by code)
+  mySeatId: null,        // guest's claimed player id for the personal banner
+  curLoading: false, curError: null,
+  queue: [],
+  flushing: false, syncFailed: false,
+  poll: null,            // interval id for guest live refresh
+};
+try{ S.queue = JSON.parse(store.get('pl_queue') || '[]'); }catch(e){ S.queue = []; }
+try{
+  const cached = JSON.parse(store.get('pl_cur') || 'null');
+  if (cached && S.queue.length) S.cur = cached;
+}catch(e){}
+S.demo = store.get('pl_demo') === '1';
+if (!S.apiUrl) S.view = S.demo ? 'home' : 'config';
+
+/* ── helpers ── */
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+/* short, unambiguous join code (no 0/O/1/I) */
+const makeCode = () => { const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<5;i++) s+=a[Math.floor(Math.random()*a.length)]; return s; };
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const toC = (v) => { const n = parseFloat(String(v).replace(/[^\d.\-]/g,'')); return isNaN(n) ? null : Math.round(n*100); };
+const amount = (c) => (Math.abs(c)/100).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmt = (c, cur) => `${cur} ${amount(c)}`;
+const signed = (c, cur) => (c < 0 ? '−' : '+') + fmt(c, cur);
+const timeStr = (iso) => new Date(iso).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+const dateStr = (iso) => new Date(iso).toLocaleDateString([], {day:'numeric',month:'short',year:'numeric'});
+const isGuest = () => S.role === 'guest';
+
+function lsSessions(){
+  try{ return JSON.parse(store.get('pl_locals') || '{}'); }catch(e){ return {}; }
+}
+function persist(){
+  if (isGuest()) return; // guests never write
+  store.set('pl_queue', JSON.stringify(S.queue));
+  if (S.cur){
+    store.set('pl_cur', JSON.stringify(S.cur));
+    const m = lsSessions();
+    m[S.cur.session.id] = S.cur;
+    store.set('pl_locals', JSON.stringify(m));
+  }
+}
+
+/* home data built from on-device sessions (local mode / no Sheet yet) */
+function localBootstrap(){
+  const list = Object.values(lsSessions());
+  const sessions = list.map(st=>{
+    const bank = st.txns.filter(t=>t.type==='buyin').reduce((a,t)=>a+t.amountCents,0);
+    return { id:st.session.id, title:st.session.title, stakes:st.session.stakes,
+      currency:st.session.currency, startedAt:st.session.startedAt, code:st.session.code||'',
+      status:st.session.status, playerCount:st.players.length, bankCents:bank };
+  }).sort((a,b)=>String(b.startedAt).localeCompare(String(a.startedAt)));
+  const lb = {};
+  const closed = list.filter(st=>st.session.status==='closed')
+    .sort((a,b)=>String(a.session.startedAt).localeCompare(String(b.session.startedAt)));
+  const history = closed.map(st=>{
+    const nets = {};
+    st.players.forEach(p=>{
+      const buy = st.txns.filter(t=>t.playerId===p.id && t.type==='buyin').reduce((a,t)=>a+t.amountCents,0);
+      const out = st.txns.filter(t=>t.playerId===p.id && t.type==='cashout').reduce((a,t)=>a+t.amountCents,0);
+      if (!buy && !out) return;
+      const key = p.name.trim().toLowerCase();
+      nets[key] = (nets[key]||0) + (out-buy);
+      if (!lb[key]) lb[key] = { name:p.name.trim(), netCents:0, sessions:0, wins:0 };
+      lb[key].netCents += out-buy; lb[key].sessions += 1;
+      if (out-buy>0) lb[key].wins += 1;
+    });
+    return { title: st.session.title, date: st.session.startedAt, nets };
+  });
+  return { sessions, leaderboard: Object.values(lb).sort((a,b)=>b.netCents-a.netCents), history };
+}
+
+/* ── settlement: minimum transfers, largest debtor → largest creditor ── */
+function computeTransfers(balances){
+  const debtors = balances.filter(b=>b.net<0).map(b=>({name:b.name, rem:-b.net})).sort((a,b)=>b.rem-a.rem);
+  const creditors = balances.filter(b=>b.net>0).map(b=>({name:b.name, rem:b.net})).sort((a,b)=>b.rem-a.rem);
+  const out = []; let i=0, j=0;
+  while (i<debtors.length && j<creditors.length){
+    const pay = Math.min(debtors[i].rem, creditors[j].rem);
+    if (pay>0) out.push({from:debtors[i].name, to:creditors[j].name, amount:pay});
+    debtors[i].rem -= pay; creditors[j].rem -= pay;
+    if (!debtors[i].rem) i++;
+    if (!creditors[j].rem) j++;
+  }
+  return out;
+}
+
+/* ── API ── */
+async function apiGet(params){
+  const u = new URL(S.apiUrl);
+  Object.entries(params).forEach(([k,v]) => u.searchParams.set(k,v));
+  const r = await fetch(u.toString());
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || 'Request failed');
+  return j.data;
+}
+async function apiPost(payload){
+  const r = await fetch(S.apiUrl, { method:'POST', body: JSON.stringify(payload) });
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || 'Request failed');
+  return j.data;
+}
+
+/* ── write queue: optimistic UI, flush in order, retry forever ── */
+function enqueue(op){
+  S.queue.push(op);
+  persist();
+  flush();
+  render();
+}
+async function flush(){
+  if (S.flushing || !S.apiUrl || !S.queue.length) return;
+  S.flushing = true;
+  while (S.queue.length){
+    try{
+      await apiPost(S.queue[0]);
+      S.queue.shift();
+      S.syncFailed = false;
+      persist();
+      render();
+    }catch(e){
+      S.syncFailed = true;
+      break;
+    }
+  }
+  S.flushing = false;
+  render();
+}
+setInterval(flush, 15000);
+window.addEventListener('online', flush);
+
+/* ── data loading ── */
+async function loadHome(){
+  if (!S.apiUrl){
+    const d = localBootstrap();
+    S.home.sessions = d.sessions;
+    S.home.leaderboard = d.leaderboard;
+    S.home.history = d.history || [];
+    S.home.loaded = true; S.home.loading = false; S.home.error = null;
+    render(); return;
+  }
+  S.home.loading = true; S.home.error = null; render();
+  try{
+    await flush();
+    const data = await apiGet({ action:'bootstrap' });
+    S.home.sessions = data.sessions || [];
+    S.home.leaderboard = data.leaderboard || [];
+    S.home.history = data.history || [];
+    S.home.loaded = true;
+  }catch(e){
+    S.home.error = String(e.message || e);
+  }
+  S.home.loading = false; render();
+}
+
+function normalizeSession(d){
+  return {
+    session: {
+      id: d.session.session_id,
+      title: d.session.title,
+      stakes: d.session.stakes,
+      currency: d.session.currency || 'RM',
+      defaultBuyInCents: Number(d.session.default_buyin_cents) || 0,
+      startedAt: d.session.started_at,
+      status: d.session.status,
+      code: d.session.code || '',
+    },
+    players: d.players.map(p => ({ id:p.player_id, name:p.name })),
+    txns: d.txns.map(t => ({
+      id: t.txn_id, playerId: t.player_id, type: t.type,
+      amountCents: Number(t.amount_cents) || 0,
+      createdAt: t.created_at, sig: t.signature || '',
+    })),
+  };
+}
+
+async function openSession(id){
+  S.role = 'host'; S.mySeatId = null; stopPoll();
+  if (!S.apiUrl){
+    const m = lsSessions();
+    if (m[id]){
+      S.cur = JSON.parse(JSON.stringify(m[id]));
+      S.view='session'; S.tab='table'; S.curLoading=false; S.curError=null;
+      persist(); render();
+    }
+    return;
+  }
+  if (S.cur && S.cur.session.id === id && S.queue.length){
+    S.view='session'; S.tab='table'; render(); flush(); return;
+  }
+  S.view='session'; S.tab='table'; S.curLoading=true; S.curError=null; S.cur=null; render();
+  try{
+    await flush();
+    S.cur = normalizeSession(await apiGet({ action:'session', id }));
+    persist();
+  }catch(e){
+    S.curError = String(e.message || e);
+  }
+  S.curLoading=false; render();
+}
+
+/* ── live guest mode: join by code, poll for updates ── */
+function stopPoll(){ if (S.poll){ clearInterval(S.poll); S.poll = null; } }
+
+async function joinByCode(code){
+  const c = String(code||'').trim().toUpperCase();
+  if (!c) return;
+  stopPoll();
+  S.role='guest'; S.mySeatId=null;
+  S.view='session'; S.tab='table'; S.curLoading=true; S.curError=null; S.cur=null; render();
+  try{
+    S.cur = normalizeSession(await apiGet({ action:'byCode', code:c }));
+    S.curLoading=false; render();
+    // poll every 5s; skip while a modal (seat picker) is open or tab hidden
+    S.poll = setInterval(async ()=>{
+      if (modalRoot.innerHTML) return;
+      if (document.hidden) return;
+      try{
+        const fresh = normalizeSession(await apiGet({ action:'byCode', code:c }));
+        S.cur = fresh; render();
+      }catch(e){ /* transient; keep last view */ }
+    }, 5000);
+  }catch(e){
+    S.curLoading=false; S.curError = String(e.message || e); render();
+  }
+}
+document.addEventListener('visibilitychange', ()=>{ if (!document.hidden && isGuest() && S.cur) {
+  apiGet({ action:'byCode', code:S.cur.session.code }).then(d=>{ S.cur=normalizeSession(d); render(); }).catch(()=>{});
+}});
+
+/* ── derived values ── */
+function buyInsOf(pid){ return S.cur.txns.filter(t=>t.playerId===pid && t.type==='buyin'); }
+function cashOutOf(pid){ return S.cur.txns.find(t=>t.playerId===pid && t.type==='cashout') || null; }
+function balances(){
+  return S.cur.players.map(p=>{
+    const buyIn = buyInsOf(p.id).reduce((a,t)=>a+t.amountCents,0);
+    const co = cashOutOf(p.id);
+    return { id:p.id, name:p.name, buyIn, cashOut: co?co.amountCents:null, net: co ? co.amountCents-buyIn : null };
+  });
+}
+function totals(){
+  const bs = balances();
+  const active = bs.filter(b=>b.buyIn>0);
+  const buyIn = bs.reduce((a,b)=>a+b.buyIn,0);
+  const cashOut = bs.reduce((a,b)=>a+(b.cashOut||0),0);
+  const outCount = active.filter(b=>b.cashOut!==null).length;
+  const allOut = active.length>0 && outCount===active.length;
+  return { buyIn, cashOut, allOut, outCount, activeCount: active.length, onTable: Math.max(buyIn-cashOut,0) };
+}
+
+/* ── mutations (optimistic + queued) ── */
+function createSession(form){
+  const id = uid();
+  const code = makeCode();
+  S.role = 'host'; S.mySeatId = null; stopPoll();
+  S.cur = {
+    session: {
+      id, title: form.title.trim() || 'Cash game',
+      stakes: form.stakes.trim(), currency: form.currency.trim() || 'RM',
+      defaultBuyInCents: toC(form.defaultBuyIn) || 0,
+      startedAt: new Date().toISOString(), status: 'live', code,
+    },
+    players: [], txns: [],
+  };
+  enqueue({ action:'createSession', id, code,
+    title:S.cur.session.title, stakes:S.cur.session.stakes,
+    currency:S.cur.session.currency, defaultBuyInCents:S.cur.session.defaultBuyInCents,
+    startedAt:S.cur.session.startedAt });
+  S.view='session'; S.tab='table'; persist(); render();
+}
+function addPlayer(name){
+  const id = uid();
+  S.cur.players.push({ id, name:name.trim() });
+  enqueue({ action:'addPlayer', id, sessionId:S.cur.session.id, name:name.trim() });
+  persist();
+}
+function addTxn(playerId, type, amountCents, sig){
+  const id = uid();
+  S.cur.txns.push({ id, playerId, type, amountCents, createdAt:new Date().toISOString(), sig });
+  enqueue({ action:'addTxn', id, sessionId:S.cur.session.id, playerId, type, amountCents, signature:sig });
+  persist();
+}
+function deleteTxn(txnId){
+  S.cur.txns = S.cur.txns.filter(t=>t.id!==txnId);
+  enqueue({ action:'deleteTxn', id:txnId, sessionId:S.cur.session.id });
+  persist();
+}
+function closeSession(){
+  S.cur.session.status = 'closed';
+  enqueue({ action:'closeSession', id:S.cur.session.id });
+  store.del('pl_cur');
+  S.cur = null; S.view='home'; S.home.loaded=false;
+  render(); loadHome();
+}
+
+/* ════════════════════ RENDERING ════════════════════ */
+const app = document.getElementById('app');
+const modalRoot = document.getElementById('modal-root');
+
+function render(){
+  if (S.view==='config') app.innerHTML = viewConfig();
+  else if (S.view==='home') app.innerHTML = viewHome();
+  else app.innerHTML = viewSession();
+}
+
+function syncBanner(){
+  if (!S.queue.length) return '';
+  if (!S.apiUrl){
+    return `<div class="banner sync row">
+      <span>${S.queue.length} change${S.queue.length>1?'s':''} stored on this phone — they'll upload when you connect your Sheet</span>
+      <button class="link" style="padding:0;color:var(--accent-hi);flex:none;margin-left:12px" data-action="open-config">Connect</button>
+    </div>`;
+  }
+  return `<div class="banner sync row">
+    <span>${S.queue.length} change${S.queue.length>1?'s':''} waiting to save${S.syncFailed?' — will retry automatically':''}</span>
+    <button class="link" style="padding:0;color:var(--accent-hi)" data-action="retry-sync">Retry now</button>
+  </div>`;
+}
+
+/* ── CONFIG VIEW ── */
+function viewConfig(){
+  return `<div class="wrap" style="padding-top:64px;max-width:440px">
+    <div style="text-align:center;margin-bottom:36px">
+      <div style="width:64px;height:64px;margin:0 auto 18px">${SPADE}</div>
+      <div class="eyebrow">Private ledger</div>
+      <h1 class="serif" style="font-size:42px;font-weight:900;margin-top:8px">Holdings</h1>
+      <p class="dim" style="font-size:14px;margin-top:10px;line-height:1.6">Every buy-in signed.<br/>Every chip accounted for.</p>
+    </div>
+    <div class="card" style="padding:24px">
+      <label class="label">Apps Script web app URL</label>
+      <input class="input" id="cfg-url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(S.apiUrl)}" />
+      <p class="dim" style="font-size:12.5px;line-height:1.6;margin:12px 0 20px">
+        From your Google Sheet: Extensions → Apps Script → paste Code.gs → Deploy →
+        Web app (execute as <b>Me</b>, access <b>Anyone</b>) → copy the /exec URL.</p>
+      <button class="btn" data-action="save-config">Connect</button>
+      <div id="cfg-msg" style="margin-top:12px;font-size:13px"></div>
+      <button class="btn-ghost" style="width:100%;margin-top:14px;padding:13px" data-action="skip-config">Try it first — connect later</button>
+      <p class="dim" style="font-size:12px;line-height:1.6;margin:12px 0 0;text-align:center">
+        Without a Sheet, games are stored on this phone only and will upload automatically once you connect.</p>
+    </div>
+    ${S.demo ? `<p style="text-align:center;margin-top:16px"><button class="link" data-action="reload-home">← Back to my games</button></p>` : ''}
+    <div style="text-align:center;margin-top:22px;padding-top:22px;border-top:1px solid var(--hairline)">
+      <p class="dim" style="font-size:13px;margin:0 0 12px">Just here to watch a friend's game?</p>
+      <button class="btn-ghost" style="padding:13px 24px" data-action="join-config">Join with a code</button>
+    </div>
+  </div>`;
+}
+
+/* ── HOME VIEW ── */
+function viewHome(){
+  const h = S.home;
+  const live = h.sessions.filter(s=>s.status==='live');
+  const past = h.sessions.filter(s=>s.status!=='live');
+  return `<div class="wrap">
+    <div class="row">
+      <div class="brand">${SPADE}<span class="name">Holdings</span></div>
+      <button class="x" data-action="open-config" title="Settings" aria-label="Settings" style="font-size:17px">⚙</button>
+    </div>
+    ${syncBanner()}
+    ${!S.apiUrl && !S.queue.length ? `<p class="dim" style="font-size:12px;margin:12px 0 0">Local mode — games stay on this phone until you connect a Sheet (⚙).</p>` : ''}
+
+    <button class="btn" style="margin-top:22px" data-action="new-game">Open a new table</button>
+    ${S.apiUrl ? `<button class="btn-ghost" style="width:100%;margin-top:10px;padding:16px;font-size:15px" data-action="join-game">Join a game with a code</button>` : ''}
+
+    ${h.loading ? `<p class="dim" style="font-size:13px;margin-top:18px">Loading your ledger…</p>` : ''}
+    ${h.error ? `<div class="banner warn">Couldn't reach your Sheet: ${esc(h.error)}
+      <button class="link" style="display:block;padding-top:6px" data-action="reload-home">Try again</button></div>` : ''}
+
+    ${live.length ? `<div class="label" style="margin-top:30px">Live tables</div>` : ''}
+    ${live.map(sessionRow).join('')}
+
+    ${buildChart(h.history, h.leaderboard)}
+
+    ${h.leaderboard.length ? `
+      <div class="label" style="margin-top:30px">All-time standings</div>
+      <div class="card" style="padding:8px 20px">
+        ${h.leaderboard.map((p,i)=>`
+          <div class="lrow">
+            <span><span class="rank">${i+1}</span>
+              <b>${esc(p.name)}</b>
+              <span class="dim" style="font-size:12px"> · ${p.sessions} game${p.sessions>1?'s':''}, ${p.wins} won</span></span>
+            <span class="num ${p.netCents>0?'up':p.netCents<0?'down':'dim'}" style="font-weight:700">
+              ${p.netCents===0?'even':signed(p.netCents, 'RM')}</span>
+          </div>`).join('')}
+      </div>` : ''}
+
+    ${past.length ? `<div class="label" style="margin-top:30px">Past games</div>` : ''}
+    ${past.map(sessionRow).join('')}
+
+    ${h.loaded && !h.sessions.length ? `
+      <div class="card" style="padding:40px 28px;text-align:center;margin-top:20px">
+        <p class="dim" style="font-size:16px;line-height:1.6;margin:0;font-weight:500">
+          The ledger is empty.<br/>Open a table and every buy-in, signature and result is recorded.</p>
+      </div>` : ''}
+  </div>`;
+}
+
+function sessionRow(s){
+  return `<div class="card" style="padding:16px 18px;margin-bottom:12px;cursor:pointer" data-action="open-session" data-id="${esc(s.id)}">
+    <div class="listrow" style="padding:0">
+      <div class="badge">${initials(s.title)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:17px;font-family:var(--display);letter-spacing:-.01em">${esc(s.title)}</div>
+        <div class="dim" style="font-size:13px;margin-top:3px">
+          ${dateStr(s.startedAt)} · ${s.playerCount} player${s.playerCount===1?'':'s'} ·
+          bank <span class="num" style="color:var(--text)">${fmt(s.bankCents, s.currency||'RM')}</span>
+        </div>
+      </div>
+      <span class="pill ${s.status==='live'?'live':'closed'}" style="flex:none">${s.status==='live'?'Live':'Closed'}</span>
+    </div>
+  </div>`;
+}
+
+/* ── SESSION VIEW ── */
+function viewSession(){
+  if (S.curLoading) return `<div class="wrap"><p class="dim" style="font-size:13px">Opening the table…</p></div>`;
+  if (S.curError || !S.cur) return `<div class="wrap">
+    <button class="link" style="padding:0 0 14px" data-action="back-home">← All games</button>
+    <div class="banner warn">Couldn't load this game: ${esc(S.curError||'unknown error')}
+      <button class="link" style="display:block;padding-top:6px" data-action="reload-home">Back to home</button></div>
+  </div>`;
+
+  const ses = S.cur.session, cur = ses.currency, t = totals();
+  const closed = ses.status==='closed';
+  const discrepancy = t.allOut ? t.cashOut - t.buyIn : null;
+  const guest = isGuest();
+
+  // guest's personal standing, if they've claimed a seat
+  let myBanner = '';
+  if (guest && S.mySeatId){
+    const b = balances().find(x=>x.id===S.mySeatId);
+    if (b){
+      const co = b.cashOut!==null;
+      myBanner = `<div class="card" style="padding:16px 18px;margin-top:14px;border:1px solid rgba(47,107,255,.4)">
+        <div class="row">
+          <div>
+            <div class="dim" style="font-size:12.5px;font-weight:600">You · ${esc(b.name)}</div>
+            <div class="num" style="font-size:26px;font-weight:800;margin-top:4px">In for ${fmt(b.buyIn,cur)}</div>
+          </div>
+          ${co?`<div style="text-align:right"><div class="dim" style="font-size:12px">Result</div>
+            <div class="num ${b.net>=0?'up':'down'}" style="font-size:22px;font-weight:800">${signed(b.net,cur)}</div></div>`:''}
+        </div>
+      </div>`;
+    } else { S.mySeatId = null; }
+  }
+
+  return `<div class="wrap">
+    <div class="row" style="margin-bottom:18px">
+      <button class="link" style="padding:0;font-size:15px" data-action="back-home">←</button>
+      <span class="pill ${closed?'closed':'live'}">${guest?(closed?'Closed':'● Live'):(closed?'Closed':'Live')}</span>
+    </div>
+
+    <div class="hero">
+      <span class="eyebrow">${esc(ses.title)}${ses.stakes?` · ${esc(cur)} ${esc(ses.stakes)}`:''}${guest?' · watching':''}</span>
+      <div class="fig"><span class="c">${esc(cur)}</span>${amount(t.buyIn)}</div>
+      <div class="sub">
+        <div class="s"><span>Chips in play</span><b>${fmt(t.onTable,cur)}</b></div>
+        <div class="s"><span>Paid out</span><b>${fmt(t.cashOut,cur)}</b></div>
+        <div class="s"><span>Cashed out</span><b>${t.outCount}/${t.activeCount||0}</b></div>
+      </div>
+    </div>
+
+    ${myBanner}
+
+    ${guest && !S.mySeatId ? `<button class="btn-ghost" style="width:100%;margin-top:14px;padding:15px;font-size:15px" data-action="claim-seat">Which player are you?</button>` : ''}
+
+    ${!guest && ses.code ? `<div class="card" style="padding:16px 18px;margin-top:14px">
+      <div class="row">
+        <div>
+          <div class="dim" style="font-size:12.5px;font-weight:600">Live join code</div>
+          <div class="num" style="font-size:30px;font-weight:900;letter-spacing:.08em;margin-top:2px">${esc(ses.code)}</div>
+        </div>
+        <button class="btn-gold" style="border:none;border-radius:999px;padding:13px 20px;font-size:14px;font-weight:700;font-family:var(--display)" data-action="share-code">Share</button>
+      </div>
+      <div class="dim" style="font-size:12px;margin-top:10px;line-height:1.5">
+        ${S.apiUrl ? 'Players enter this code under “Join a game” to watch the table live on their own phones.'
+                   : 'Connect your Sheet (⚙) to let players join live — guests can’t read a game that only lives on this phone.'}
+      </div>
+    </div>` : ''}
+
+    ${discrepancy!==null && discrepancy!==0 ? `<div class="banner warn">
+      Bank is off by <b class="num">${fmt(Math.abs(discrepancy),cur)}</b> —
+      ${discrepancy>0?'cash-outs exceed buy-ins.':'chips are unaccounted for.'} Recount stacks before settling.
+    </div>` : ''}
+    ${discrepancy===0 ? `<div class="banner ok">Bank reconciled — every chip accounted for.</div>` : ''}
+    ${!guest ? syncBanner() : ''}
+
+    <nav class="tabs">
+      <button class="${S.tab==='table'?'on':''}" data-action="tab" data-tab="table">Table</button>
+      <button class="${S.tab==='cashout'?'on':''}" data-action="tab" data-tab="cashout">Cash out</button>
+      <button class="${S.tab==='settle'?'on':''}" data-action="tab" data-tab="settle">Settle up</button>
+    </nav>
+
+    <div style="margin-top:18px">
+      ${S.tab==='table' ? tabTable(closed) : S.tab==='cashout' ? tabCashOut(closed) : tabSettle(discrepancy)}
+    </div>
+  </div>`;
+}
+
+function initials(name){
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0]||'') + (parts[1]?.[0]||'')).toUpperCase() || '?';
+}
+
+/* ── all-time cumulative P&L chart (hand-drawn SVG, no libs) ── */
+const CHART_COLORS = ['#2F6BFF','#3FD98B','#FF6B4A','#C9A24B','#A98BFF','#4DD0E1','#FF8FB1','#9CCC65'];
+function buildChart(history, leaderboard){
+  if (!history || history.length < 2) return ''; // need ≥2 nights for a trend
+  // players sorted by all-time net (top first); cap lines to keep it readable
+  const order = leaderboard.map(p=>p.name.toLowerCase());
+  const keys = order.slice(0, 6);
+  const names = {}; leaderboard.forEach(p=>names[p.name.toLowerCase()]=p.name);
+  // cumulative series per player across nights
+  const series = keys.map((k,idx)=>{
+    let cum = 0; const pts = [];
+    history.forEach(h=>{ cum += (h.nets[k]||0); pts.push(cum); });
+    return { key:k, name:names[k]||k, color:CHART_COLORS[idx%CHART_COLORS.length], pts };
+  });
+  const all = series.flatMap(s=>s.pts).concat([0]);
+  const min = Math.min(...all), max = Math.max(...all);
+  const pad = (max-min)*0.12 || 1000;
+  const lo = min-pad, hi = max+pad;
+  const W=520, H=200, L=8, R=8, Tp=10, B=22;
+  const n = history.length;
+  const x = i => L + (W-L-R) * (n===1?0.5:i/(n-1));
+  const y = v => Tp + (H-Tp-B) * (1 - (v-lo)/(hi-lo||1));
+  const zero = y(0);
+  const paths = series.map(s=>{
+    const d = s.pts.map((v,i)=>`${i?'L':'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+    const last = s.pts[s.pts.length-1];
+    return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${x(n-1).toFixed(1)}" cy="${y(last).toFixed(1)}" r="3.5" fill="${s.color}"/>`;
+  }).join('');
+  const legend = series.map(s=>{
+    const last = s.pts[s.pts.length-1];
+    return `<span style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 8px 0;font-size:12.5px">
+      <span style="width:10px;height:10px;border-radius:3px;background:${s.color};display:inline-block"></span>
+      <b style="font-weight:600">${esc(s.name)}</b>
+      <span class="num ${last>0?'up':last<0?'down':'dim'}" style="font-weight:700">${last===0?'even':signed(last,'RM')}</span>
+    </span>`;
+  }).join('');
+  return `
+    <div class="label" style="margin-top:30px">Profit over time</div>
+    <div class="card" style="padding:16px 16px 14px">
+      <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block" preserveAspectRatio="none">
+        <line x1="${L}" y1="${zero.toFixed(1)}" x2="${W-R}" y2="${zero.toFixed(1)}" stroke="rgba(255,255,255,.14)" stroke-width="1" stroke-dasharray="3 4"/>
+        ${paths}
+      </svg>
+      <div style="margin-top:12px">${legend}</div>
+      <div class="dim" style="font-size:11.5px;margin-top:2px">Cumulative net across ${n} closed games · zero line dashed</div>
+    </div>`;
+}
+
+function tabTable(closed){
+  const cur = S.cur.session.currency;
+  const guest = isGuest();
+  const cards = S.cur.players.map(p=>{
+    const bi = buyInsOf(p.id);
+    const total = bi.reduce((a,t)=>a+t.amountCents,0);
+    const out = !!cashOutOf(p.id);
+    const mine = guest && S.mySeatId===p.id;
+    const dots = bi.slice(0,8).map((_,i)=>`<i style="opacity:${(0.45+(i/Math.max(bi.length,1))*0.5).toFixed(2)}"></i>`).join('')
+      + (bi.length>8?`<span class="gold" style="font-size:11px">+${bi.length-8}</span>`:'');
+    return `<div class="card" style="padding:14px 16px;margin-bottom:12px;${out?'opacity:.5':''}${mine?';border:1px solid rgba(47,107,255,.5)':''}">
+      <div class="listrow" style="padding:0">
+        <div class="badge ${out?'':'accent'}">${initials(p.name)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:17px;font-family:var(--display);letter-spacing:-.01em;display:flex;align-items:center">${esc(p.name)}${mine?'<span class="dim" style="font-size:12px;font-weight:600;margin-left:8px">You</span>':''}${bi.length?`<span class="chips">${dots}</span>`:''}</div>
+          <div class="dim" style="font-size:13px;margin-top:3px">
+            ${bi.length===0?'No buy-in yet':`<span class="num" style="color:var(--text);font-weight:700">${fmt(total,cur)}</span> · ${bi.length} buy-in${bi.length>1?'s':''}`}${out?' · out':''}
+          </div>
+        </div>
+        ${!guest && !out && !closed
+          ? `<button class="btn-gold" style="border:none;border-radius:999px;padding:12px 20px;font-size:15px;font-weight:700;font-family:var(--display);flex:none" data-action="buyin" data-id="${p.id}">${bi.length===0?'Buy in':'Rebuy'}</button>`
+          : ''}
+        ${bi.length?`<button class="x" style="flex:none" data-action="ledger" data-id="${p.id}" title="Ledger" aria-label="Ledger">≡</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  if (guest) return `${S.cur.players.length===0?`<div class="card" style="padding:40px 28px;text-align:center"><p class="dim" style="font-size:16px;margin:0;font-weight:500">Waiting for the host to seat players…</p></div>`:cards}`;
+
+  return `
+    ${S.cur.players.length===0?`<div class="card" style="padding:40px 28px;text-align:center"><p class="dim" style="font-size:16px;line-height:1.6;margin:0;font-weight:500">The table is empty.<br/>Seat the first player to start taking buy-ins.</p></div>`:''}
+    ${cards}
+    ${!closed?`<button class="btn-ghost" style="width:100%;margin-top:4px;padding:18px;font-size:16px" data-action="add-player">+ Seat a player</button>`:''}
+  `;
+}
+
+function tabCashOut(closed){
+  const cur = S.cur.session.currency;
+  const guest = isGuest();
+  const bs = balances().filter(b=>b.buyIn>0);
+  if (!bs.length) return `<div class="card" style="padding:40px 28px;text-align:center"><p class="dim" style="font-size:16px;margin:0;font-weight:500">Nobody has bought in yet.</p></div>`;
+  return `
+    ${!guest?`<p class="dim" style="font-size:14px;margin:2px 0 16px;line-height:1.6">
+      Count each player's final stack, enter it, and have them sign for the amount they're taking off the table.</p>`:''}
+    ${bs.map(b=>`
+      <div class="card" style="padding:14px 18px;margin-bottom:12px">
+        <div class="listrow" style="padding:0">
+          <div class="badge ${b.cashOut!==null?(b.net>=0?'up':'down'):'accent'}">${initials(b.name)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:17px;font-family:var(--display);letter-spacing:-.01em">${esc(b.name)}</div>
+            <div class="dim" style="font-size:13px;margin-top:3px">
+              In for <span class="num">${fmt(b.buyIn,cur)}</span>
+              ${b.cashOut!==null?` · out <span class="num" style="color:var(--text)">${fmt(b.cashOut,cur)}</span>`:''}
+            </div>
+          </div>
+          ${b.cashOut!==null ? `
+            <div style="text-align:right;flex:none">
+              <div class="num ${b.net>=0?'up':'down'}" style="font-weight:800;font-size:18px">${signed(b.net,cur)}</div>
+              ${!guest && !closed?`<button class="link" data-action="undo-cashout" data-id="${b.id}">Recount</button>`:''}
+            </div>` : (guest ? `<span class="dim" style="font-size:13px;flex:none">in play</span>` : `
+            <button class="btn-ghost btn-gold" style="padding:11px 18px;flex:none" data-action="cashout" data-id="${b.id}">Cash out</button>`)}
+        </div>
+      </div>`).join('')}
+  `;
+}
+
+function tabSettle(discrepancy){
+  const cur = S.cur.session.currency, t = totals();
+  const closed = S.cur.session.status==='closed';
+  const bs = balances().filter(b=>b.buyIn>0);
+  if (!t.allOut || !bs.length){
+    return `<div class="card" style="padding:36px 28px;text-align:center">
+      <p class="dim" style="font-size:16px;line-height:1.6;margin:0;font-weight:500">Settlement unlocks once everyone has cashed out.</p>
+      <p class="num" style="font-size:14px;margin:12px 0 0">${t.outCount}/${t.activeCount} cashed out</p>
+    </div>`;
+  }
+  const sorted = [...bs].sort((a,b)=>b.net-a.net);
+  const transfers = computeTransfers(bs);
+  return `
+    <div class="label">Results</div>
+    <div class="card" style="padding:8px 20px;margin-bottom:18px">
+      ${sorted.map(b=>`<div class="lrow"><b>${esc(b.name)}</b>
+        <span class="num ${b.net>0?'up':b.net<0?'down':'dim'}" style="font-weight:700">${b.net===0?'even':signed(b.net,cur)}</span></div>`).join('')}
+    </div>
+    ${discrepancy!==0?`<p class="down" style="font-size:13px;line-height:1.6;margin:0 0 16px">
+      The bank is off by ${fmt(Math.abs(discrepancy),cur)}, so these transfers won't fully balance.
+      Recount stacks, or agree on who absorbs the difference before paying out.</p>`:''}
+    <div class="label">Settle in ${transfers.length} transfer${transfers.length===1?'':'s'}</div>
+    <div class="card" style="padding:8px 20px">
+      ${transfers.length===0?`<div style="padding:14px 0" class="dim">Everyone broke even — no money needs to move.</div>`
+        : transfers.map(tr=>`<div class="lrow">
+            <span><b>${esc(tr.from)}</b><span class="dim"> pays </span><b>${esc(tr.to)}</b></span>
+            <span class="num" style="font-weight:700">${fmt(tr.amount,cur)}</span></div>`).join('')}
+    </div>
+    <button class="btn" style="margin-top:18px" data-action="export">Export session summary</button>
+    ${!isGuest() && !closed?`<button class="btn-ghost" style="width:100%;margin-top:10px;padding:14px" data-action="close-session">Close this game</button>
+      <p class="dim" style="font-size:12px;text-align:center;margin-top:10px">Closing locks the game and adds the results to the standings.</p>`:''}
+  `;
+}
+
+/* ════════════════════ MODALS ════════════════════ */
+function openModal(title, bodyHtml){
+  modalRoot.innerHTML = `<div class="modal-bg" data-action="close-modal">
+    <div class="modal">
+      <div class="row" style="margin-bottom:20px"><h3>${title}</h3>
+        <button class="x" data-action="close-modal">×</button></div>
+      ${bodyHtml}
+    </div>
+  </div>`;
+}
+function closeModal(){ modalRoot.innerHTML=''; }
+
+/* big Wise-style amount field + quick amounts */
+function amtFieldHtml(id, cur, value, placeholder, quicks){
+  return `
+    <div class="amt">
+      <span class="cur">${esc(cur)}</span>
+      <input id="${id}" inputmode="decimal" value="${value??''}" placeholder="${placeholder||'0.00'}" />
+    </div>
+    ${quicks && quicks.length ? `<div class="quick">
+      ${quicks.map(q=>`<button data-action="quick-amt" data-target="${id}" data-val="${q.val}">${esc(q.label)}</button>`).join('')}
+    </div>`:''}
+  `;
+}
+
+/* signature pad */
+function initSigPad(boxId, onChange){
+  const box = document.getElementById(boxId);
+  const canvas = box.querySelector('canvas');
+  const hint = box.querySelector('.sig-hint');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+  ctx.lineWidth = 2; ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.strokeStyle = '#F2EFE8';
+  let drawing=false, ink=false;
+  const pos = e => { const r = canvas.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; };
+  canvas.addEventListener('pointerdown', e=>{ e.preventDefault(); drawing=true; canvas.setPointerCapture(e.pointerId);
+    const p=pos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); });
+  canvas.addEventListener('pointermove', e=>{ if(!drawing) return; e.preventDefault();
+    const p=pos(e); ctx.lineTo(p.x,p.y); ctx.stroke();
+    if(!ink){ ink=true; hint.style.display='none'; } });
+  const end = ()=>{ if(!drawing) return; drawing=false; onChange(exportSig(canvas), true); };
+  canvas.addEventListener('pointerup', end);
+  canvas.addEventListener('pointerleave', end);
+  return {
+    clear(){ ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,canvas.width,canvas.height); ctx.restore();
+      ink=false; hint.style.display='flex'; onChange(null,false); },
+  };
+}
+function exportSig(canvas){
+  const w = 300, h = Math.round(canvas.height/canvas.width*300) || 100;
+  const off = document.createElement('canvas');
+  off.width = w; off.height = h;
+  off.getContext('2d').drawImage(canvas, 0, 0, w, h);
+  return off.toDataURL('image/png');
+}
+const sigBoxHtml = (id)=>`<div class="sig-box" id="${id}">
+  <canvas></canvas><div class="sig-hint">Sign here to confirm</div>
+</div>`;
+
+function modalNewGame(){
+  openModal('New game', `
+    <label class="label">Game name</label>
+    <input class="input-lg" id="ng-title" placeholder="Friday night cash" />
+    <div style="display:flex;gap:12px;margin-top:18px">
+      <div style="flex:1"><label class="label">Stakes</label><input class="input-lg" id="ng-stakes" placeholder="1 / 2" /></div>
+      <div style="width:120px"><label class="label">Currency</label><input class="input-lg" id="ng-cur" value="RM" /></div>
+    </div>
+    <div style="margin-top:18px"><label class="label">Standard buy-in</label>
+      ${amtFieldHtml('ng-buyin','RM','100')}
+    </div>
+    <button class="btn" style="margin-top:22px" data-action="confirm-new-game">Open the table</button>
+  `);
+  document.getElementById('ng-cur').addEventListener('input', e=>{
+    document.querySelector('#ng-buyin').closest('.amt').querySelector('.cur').textContent = e.target.value || 'RM';
+  });
+}
+
+function modalAddPlayer(){
+  openModal('Seat a player', `
+    <label class="label">Name</label>
+    <input class="input-lg" id="ap-name" placeholder="Player name" autofocus />
+    <button class="btn" style="margin-top:20px" data-action="confirm-add-player">Add to table</button>
+  `);
+  const inp = document.getElementById('ap-name');
+  inp.focus();
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter' && inp.value.trim()) { addPlayer(inp.value); closeModal(); render(); } });
+}
+
+let sigData = null, sigPad = null;
+function modalBuyIn(playerId){
+  const p = S.cur.players.find(x=>x.id===playerId);
+  const cur = S.cur.session.currency;
+  const defC = S.cur.session.defaultBuyInCents;
+  const def = defC ? (defC/100) : '';
+  const quicks = defC ? [
+    {label: fmt(defC,cur), val: defC/100},
+    {label: fmt(defC*2,cur), val: defC*2/100},
+    {label: fmt(defC*3,cur), val: defC*3/100},
+  ] : [];
+  sigData = null;
+  openModal(`Buy-in — ${esc(p.name)}`, `
+    <label class="label">Amount</label>
+    ${amtFieldHtml('bi-amount', cur, def, '0.00', quicks)}
+    <div style="margin-top:18px">
+      <label class="label">${esc(p.name)} signs for the chips</label>
+      ${sigBoxHtml('bi-sig')}
+      <button class="link" data-action="clear-sig">Clear signature</button>
+    </div>
+    <button class="btn" style="margin-top:18px" id="bi-confirm" data-action="confirm-buyin" data-id="${playerId}" disabled>Confirm buy-in</button>
+  `);
+  sigPad = initSigPad('bi-sig', (d)=>{ sigData=d; updateSigBtn('bi-confirm','bi-amount'); });
+  document.getElementById('bi-amount').addEventListener('input', ()=>updateSigBtn('bi-confirm','bi-amount'));
+}
+function modalCashOut(playerId){
+  const p = S.cur.players.find(x=>x.id===playerId);
+  const b = balances().find(x=>x.id===playerId);
+  const cur = S.cur.session.currency;
+  sigData = null;
+  openModal(`Cash out — ${esc(p.name)}`, `
+    <label class="label">Final stack</label>
+    ${amtFieldHtml('co-amount', cur, '', '0.00', [{label:'Busted — '+fmt(0,cur), val:0}])}
+    <div class="num" id="co-net" style="margin-top:12px;font-size:13px"></div>
+    <div style="margin-top:18px">
+      <label class="label">${esc(p.name)} signs for the amount taken off the table</label>
+      ${sigBoxHtml('co-sig')}
+      <button class="link" data-action="clear-sig">Clear signature</button>
+    </div>
+    <button class="btn" style="margin-top:18px" id="co-confirm" data-action="confirm-cashout" data-id="${playerId}" disabled>Confirm cash-out</button>
+  `);
+  sigPad = initSigPad('co-sig', (d)=>{ sigData=d; updateSigBtn('co-confirm','co-amount',true); });
+  const inp = document.getElementById('co-amount');
+  inp.focus();
+  const showNet = ()=>{
+    updateSigBtn('co-confirm','co-amount',true);
+    const c = toC(inp.value), el = document.getElementById('co-net');
+    if (c===null){ el.textContent=''; return; }
+    const net = c - b.buyIn;
+    el.className = 'num ' + (net>=0?'up':'down');
+    el.style.cssText = 'margin-top:12px;font-size:13px;font-weight:600';
+    el.textContent = `${net>=0?'Up':'Down'} ${fmt(Math.abs(net),cur)} on ${fmt(b.buyIn,cur)} in`;
+  };
+  inp.addEventListener('input', showNet);
+  inp._showNet = showNet;
+}
+function updateSigBtn(btnId, amtId, allowZero){
+  const c = toC(document.getElementById(amtId).value);
+  const ok = c!==null && (allowZero ? c>=0 : c>0) && !!sigData;
+  document.getElementById(btnId).disabled = !ok;
+}
+
+function modalJoinGame(){
+  openModal('Join a game', `
+    <label class="label">Enter the join code from the host</label>
+    <input class="input" id="jg-code" placeholder="e.g. K7P4M" autocomplete="off" autocapitalize="characters"
+      style="text-transform:uppercase;font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:.1em;text-align:center" maxlength="5" />
+    <button class="btn" style="margin-top:18px" data-action="confirm-join">Watch live</button>
+    <div id="jg-msg" style="margin-top:10px;font-size:13px"></div>
+    <p class="dim" style="font-size:12px;line-height:1.6;margin:14px 0 0;text-align:center">
+      You'll see buy-ins, the bank and results update live. Only the host can record changes.</p>
+  `);
+  const inp = document.getElementById('jg-code');
+  inp.focus();
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter' && inp.value.trim()){ closeModal(); joinByCode(inp.value); } });
+}
+
+function modalClaimSeat(){
+  if (!S.cur.players.length){
+    openModal('Which player are you?', `<p class="dim" style="font-size:15px;line-height:1.6;margin:0">No players seated yet. Once the host adds you to the table, tap here to pick your name.</p>`);
+    return;
+  }
+  openModal('Which player are you?', `
+    <p class="dim" style="font-size:13px;margin:0 0 14px">Pick your seat to see your own buy-ins and result highlighted.</p>
+    ${S.cur.players.map(p=>`
+      <button class="btn-ghost" style="width:100%;text-align:left;margin-bottom:10px;padding:15px 16px;display:flex;align-items:center;gap:14px" data-action="pick-seat" data-id="${p.id}">
+        <span class="badge" style="width:40px;height:40px;font-size:15px">${initials(p.name)}</span>
+        <span style="font-size:16px;font-weight:700;font-family:var(--display)">${esc(p.name)}</span>
+      </button>`).join('')}
+  `);
+}
+
+function modalLedger(playerId){
+  const p = S.cur.players.find(x=>x.id===playerId);
+  const cur = S.cur.session.currency;
+  const closed = S.cur.session.status==='closed';
+  const bi = buyInsOf(playerId);
+  const co = cashOutOf(playerId);
+  openModal(`${esc(p.name)} — ledger`, `
+    ${bi.map(t=>`
+      <div style="border:1px solid var(--hairline);border-radius:14px;padding:14px;margin-bottom:10px">
+        <div class="row">
+          <span class="num" style="font-weight:700;font-size:16px">${fmt(t.amountCents,cur)}</span>
+          <span class="dim" style="font-size:12px">${timeStr(t.createdAt)}</span>
+        </div>
+        ${t.sig?`<img class="sig-img" src="${t.sig}" alt="signature" />`:''}
+        ${!isGuest() && !closed?`<button class="link" data-action="delete-buyin" data-id="${t.id}" data-player="${playerId}">Remove this buy-in</button>`:''}
+      </div>`).join('')}
+    ${co?`
+      <div style="border:1px solid var(--hairline);border-radius:14px;padding:14px">
+        <div class="row"><span class="dim" style="font-size:12px">Cash-out</span>
+          <span class="num" style="font-weight:700">${fmt(co.amountCents,cur)}</span></div>
+        ${co.sig?`<img class="sig-img" src="${co.sig}" alt="cash-out signature" />`:''}
+      </div>`:''}
+  `);
+}
+
+function modalExport(){
+  const ses = S.cur.session, cur = ses.currency, t = totals();
+  const discrepancy = t.cashOut - t.buyIn;
+  const sorted = balances().filter(b=>b.buyIn>0).sort((a,b)=>b.net-a.net);
+  const transfers = computeTransfers(sorted);
+  const pad = Math.max(...sorted.map(b=>b.name.length), 4) + 2;
+  const text = [
+    `♠ HOLDINGS — ${ses.title} — ${dateStr(ses.startedAt)}`,
+    `${ses.stakes?`Stakes ${cur} ${ses.stakes} · `:''}${sorted.length} players · Bank ${fmt(t.buyIn,cur)}`,
+    discrepancy!==0?`⚠ Bank off by ${fmt(Math.abs(discrepancy),cur)}`:`Bank reconciled ✓`,
+    ``, `RESULTS`,
+    ...sorted.map(b=>`  ${b.name.padEnd(pad)}${b.net===0?'even':signed(b.net,cur)}`),
+    ``, `SETTLE UP (${transfers.length} transfer${transfers.length===1?'':'s'})`,
+    ...(transfers.length?transfers.map(tr=>`  ${tr.from} → ${tr.to}  ${fmt(tr.amount,cur)}`):['  Nothing to settle.']),
+  ].join('\n');
+  openModal('Session summary', `
+    <textarea readonly id="ex-text" style="font-family:ui-monospace,monospace;font-size:12.5px;height:260px;resize:none;line-height:1.6" onclick="this.select()">${esc(text)}</textarea>
+    <button class="btn" style="margin-top:16px" data-action="copy-export">Copy to clipboard</button>
+  `);
+}
+
+function modalCloseSession(){
+  const t = totals();
+  const discrepancy = t.cashOut - t.buyIn;
+  openModal('Close this game?', `
+    <p class="dim" style="font-size:14px;line-height:1.6;margin:0 0 18px">
+      The game will be locked and the results added to the all-time standings.
+      ${discrepancy!==0?`<br><br><span class="down">Heads up: the bank is still off by ${fmt(Math.abs(discrepancy), S.cur.session.currency)}.</span>`:''}
+    </p>
+    <button class="btn" data-action="confirm-close-session">Close game</button>
+    <button class="btn-ghost" style="width:100%;margin-top:10px;padding:13px" data-action="close-modal">Keep playing</button>
+  `);
+}
+
+/* ════════════════════ EVENTS ════════════════════ */
+document.addEventListener('click', async (e)=>{
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const a = el.dataset.action;
+
+  if (a==='close-modal'){ if (e.target===el || el.classList.contains('x')) closeModal(); return; }
+  if (a==='open-config'){ S.view='config'; render(); return; }
+  if (a==='skip-config'){
+    S.demo = true; store.set('pl_demo','1');
+    S.view='home'; S.home.loaded=false; render(); loadHome();
+    return;
+  }
+  if (a==='save-config'){
+    const url = document.getElementById('cfg-url').value.trim();
+    const msg = document.getElementById('cfg-msg');
+    if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(url)){ msg.innerHTML='<span class="down">That doesn\'t look like an Apps Script /exec URL.</span>'; return; }
+    msg.innerHTML='<span class="dim">Testing connection…</span>';
+    try{
+      const r = await fetch(url + (url.includes('?')?'&':'?') + 'action=ping');
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error||'unexpected response');
+      S.apiUrl = url; store.set('pl_api', url);
+      S.demo = false; store.del('pl_demo');
+      S.view='home'; S.home.loaded=false; render(); loadHome();
+    }catch(err){
+      msg.innerHTML = `<span class="down">Couldn't connect: ${esc(String(err.message||err))}. Check the deployment is set to "Anyone".</span>`;
+    }
+    return;
+  }
+  if (a==='quick-amt'){
+    const inp = document.getElementById(el.dataset.target);
+    if (inp){ inp.value = el.dataset.val; inp.dispatchEvent(new Event('input')); }
+    return;
+  }
+  if (a==='retry-sync'){ flush(); return; }
+  if (a==='reload-home'){ stopPoll(); S.role='host'; S.view='home'; render(); loadHome(); return; }
+  if (a==='back-home'){ stopPoll(); S.role='host'; S.view='home'; S.home.loaded=false; render(); loadHome(); return; }
+  if (a==='new-game'){ modalNewGame(); return; }
+  if (a==='join-game'){ modalJoinGame(); return; }
+  if (a==='confirm-join'){
+    const code = document.getElementById('jg-code').value.trim();
+    if (code){ closeModal(); joinByCode(code); }
+    return;
+  }
+  if (a==='join-config'){
+    if (!S.apiUrl){
+      const msg = document.getElementById('cfg-msg');
+      msg.innerHTML='<span class="down">Enter the host\'s Apps Script URL above and Connect first — that\'s the shared link the code looks up.</span>';
+      return;
+    }
+    modalJoinGame(); return;
+  }
+  if (a==='claim-seat'){ modalClaimSeat(); return; }
+  if (a==='pick-seat'){ S.mySeatId = el.dataset.id; closeModal(); render(); return; }
+  if (a==='share-code'){
+    const code = S.cur.session.code;
+    const text = `Join my poker table on Holdings — code ${code}`;
+    if (navigator.share){ navigator.share({title:'Holdings', text}).catch(()=>{}); }
+    else { try{ await navigator.clipboard.writeText(code); el.textContent='Copied'; setTimeout(()=>el.textContent='Share',1500);}catch(_){}}
+    return;
+  }
+  if (a==='confirm-new-game'){
+    createSession({
+      title: document.getElementById('ng-title').value,
+      stakes: document.getElementById('ng-stakes').value,
+      currency: document.getElementById('ng-cur').value,
+      defaultBuyIn: document.getElementById('ng-buyin').value,
+    });
+    closeModal(); return;
+  }
+  if (a==='open-session'){ openSession(el.dataset.id); return; }
+  if (a==='tab'){ S.tab = el.dataset.tab; render(); return; }
+  if (a==='add-player'){ modalAddPlayer(); return; }
+  if (a==='confirm-add-player'){
+    const name = document.getElementById('ap-name').value;
+    if (name.trim()){ addPlayer(name); closeModal(); render(); }
+    return;
+  }
+  if (a==='buyin'){ modalBuyIn(el.dataset.id); return; }
+  if (a==='confirm-buyin'){
+    const c = toC(document.getElementById('bi-amount').value);
+    if (c && c>0 && sigData){ addTxn(el.dataset.id, 'buyin', c, sigData); closeModal(); render(); }
+    return;
+  }
+  if (a==='cashout'){ modalCashOut(el.dataset.id); return; }
+  if (a==='confirm-cashout'){
+    const c = toC(document.getElementById('co-amount').value);
+    if (c!==null && c>=0 && sigData){ addTxn(el.dataset.id, 'cashout', c, sigData); closeModal(); render(); }
+    return;
+  }
+  if (a==='clear-sig'){ sigPad && sigPad.clear(); return; }
+  if (a==='undo-cashout'){
+    const co = cashOutOf(el.dataset.id);
+    if (co) { deleteTxn(co.id); render(); }
+    return;
+  }
+  if (a==='ledger'){ modalLedger(el.dataset.id); return; }
+  if (a==='delete-buyin'){
+    if (el.dataset.confirmed){ deleteTxn(el.dataset.id); closeModal(); render(); }
+    else { el.dataset.confirmed='1'; el.textContent='Tap again to delete'; el.style.color='var(--down)'; }
+    return;
+  }
+  if (a==='export'){ modalExport(); return; }
+  if (a==='copy-export'){
+    const ta = document.getElementById('ex-text');
+    try{ await navigator.clipboard.writeText(ta.value); el.textContent='Copied'; setTimeout(()=>el.textContent='Copy to clipboard',1500); }
+    catch(_){ ta.select(); }
+    return;
+  }
+  if (a==='close-session'){ modalCloseSession(); return; }
+  if (a==='confirm-close-session'){ closeModal(); closeSession(); return; }
+});
+
+/* ── boot ── */
+render();
+if (S.view==='home') loadHome();
+if (S.cur && S.queue.length && S.view!=='config'){ S.view='session'; render(); flush(); }
+</script>
+</body>
+</html>
