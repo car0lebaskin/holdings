@@ -1,4 +1,5 @@
 {
+  "name": "holdings",
   "private": true,
   "scripts": {
     "build": "node patch-startup.js"
