@@ -1,12 +1,13 @@
 const fs = require('fs');
+const path = require('path');
 
-const sourceFile = 'index.html';
+const sourceFile = path.join('public', 'index.html');
 let html = fs.readFileSync(sourceFile, 'utf8');
 
 function replaceOnce(needle, replacement, label) {
   if (!html.includes(needle)) {
     if (replacement && html.includes(replacement)) return;
-    throw new Error(label + ' patch target not found in index.html');
+    throw new Error(label + ' patch target not found in public/index.html');
   }
   html = html.replace(needle, replacement);
 }
