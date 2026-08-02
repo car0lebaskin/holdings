@@ -21,7 +21,13 @@ const inviteHash = new URLSearchParams(location.hash.startsWith('#') ? location.
 const inviteQuery = new URLSearchParams(location.search);
 const inviteCode = String(inviteHash.get('join') || inviteQuery.get('join') || '').trim().toUpperCase();
 const inviteApi = String(inviteHash.get('api') || inviteQuery.get('api') || '').trim();
-if (inviteCode && inviteApi && /^https:\/\/script\.google(usercontent)?\.com\//.test(inviteApi)) {
+let validInviteApi = false;
+try {
+  const parsedInviteApi = new URL(inviteApi);
+  validInviteApi = parsedInviteApi.protocol === 'https:' &&
+    (parsedInviteApi.hostname === 'script.google.com' || parsedInviteApi.hostname === 'script.googleusercontent.com');
+} catch (_) {}
+if (inviteCode && validInviteApi) {
   S.apiUrl = inviteApi;
   store.set('pl_api', inviteApi);
   S.demo = false;
@@ -83,10 +89,20 @@ const required = [
   "S.pendingInviteCode = inviteCode",
   "joinByCode(code)",
   "new URLSearchParams({ join:code, api:S.apiUrl })",
+  "parsedInviteApi.hostname === 'script.google.com'",
 ];
 for (const token of required) {
   if (!html.includes(token)) throw new Error('Sharing patch verification failed: ' + token);
 }
 
+const inlineScripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]);
+for (let i = 0; i < inlineScripts.length; i += 1) {
+  try {
+    new Function(inlineScripts[i]);
+  } catch (error) {
+    throw new Error('Generated inline script ' + (i + 1) + ' failed syntax validation: ' + error.message);
+  }
+}
+
 fs.writeFileSync(sourceFile, html);
-console.log('Applied shareable invite link patch');
+console.log('Applied and syntax-checked shareable invite link patch');
