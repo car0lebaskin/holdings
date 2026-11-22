@@ -383,3 +383,53 @@ form>.primary-btn{margin-top:24px}
  .edge-glow.edge-glow-held{opacity:.5;filter:none}
  .edge-glow.edge-glow-release,.edge-glow.edge-glow-impact{animation:none!important}
 }
+
+
+/* Stage 4: recoverable operations, correction notes, sharing and local backups */
+.home-tools{display:flex;flex-direction:column;gap:9px;margin-top:18px}
+.home-tools details{border:1px solid #31343f;background:#191b22;border-radius:16px;overflow:hidden}
+.home-tools summary{display:flex;align-items:center;justify-content:space-between;cursor:pointer;list-style:none;padding:17px 16px;color:#e7e9f3;font-size:13px;font-weight:800;gap:10px}
+.home-tools summary::-webkit-details-marker{display:none}
+.home-tools summary>svg{color:#8fa9f5;transition:transform .2s;flex-shrink:0}
+.home-tools details[open] summary>svg{transform:rotate(90deg)}
+.home-tools details>section{margin:0 14px 16px;border-top:1px solid #343746;padding-top:9px}
+.home-tools .section-head{margin:8px 0 10px}
+.home-tools .section-head h2{font-size:17px}
+.home-tools input{font-weight:700;color:#eef1fa}
+.home-tools .outline-wide{margin-top:11px}
+.backup-tools .subtle-copy{font-size:12px;line-height:1.6}
+.backup-feedback,.backup-error{font-size:12px;line-height:1.6;border-radius:10px;padding:10px 12px;margin:11px 0}
+.backup-feedback{background:#1b3a32;color:#a6f1cd}
+.backup-error{background:#3a2427;color:#ffb3ae}
+.backup-disclaimer{font-size:11px;color:#999dad;line-height:1.65;margin:12px 0 0}
+.profile-edit-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid #303340;padding:11px 3px;font-size:13px;font-weight:700}
+.profile-edit-row:last-child{border-bottom:0}
+.profile-edit-row>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.profile-edit-row button{display:grid;place-items:center;border:0;background:#2a344a;color:#c3d2ff;border-radius:50%;width:34px;height:34px;flex:none}
+.profile-edit-active{display:flex;align-items:center;gap:8px;width:100%}
+.profile-edit-active input{min-width:0;flex:1;min-height:43px;padding:10px 11px;font-size:14px}
+.guest-link-manager{padding-top:7px;margin-top:20px;border-top:1px solid #3a3c4a}
+.guest-link-manager .section-head{margin:15px 0}
+.guest-link-manager .section-head h2{font-size:19px}
+.guest-link-manager>select{background:#12131b;border:1px solid #454958;border-radius:14px;min-height:48px}
+.guest-links-existing{padding-top:16px;margin-top:19px;border-top:1px solid #373b49}
+.guest-link-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid #303444}
+.guest-link-row>div{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+.guest-link-row strong{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.guest-link-row small{font-size:11px;color:#9fa5b6}
+.guest-link-row button{width:34px;height:34px;flex-shrink:0;display:grid;place-items:center;border:none;border-radius:12px;background:#2a3349;color:#b8c9ff}
+.guest-link-row button.revoke-link{background:#462d32;color:#ff9b97}
+.pending-panel{margin:0 0 18px;padding:15px 14px;background:#29271d;border:1px solid #675a36;border-radius:18px;color:#f0e8ce}
+.pending-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pending-head strong{font-size:13px}
+.pending-head button{margin:0;color:#f6d889;white-space:nowrap}
+.pending-panel>p{font-size:12px;color:#c6bb9f;margin:9px 0 14px;line-height:1.6}
+.pending-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #595039}
+.pending-item>div{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0}
+.pending-item strong{font-size:12px}
+.pending-item small{font-size:11px;line-height:1.4;color:#c4bca7;overflow-wrap:anywhere}
+.pending-item button{background:#433329;color:#ffb29f;border:none;border-radius:100px;padding:8px 10px;font-size:11px;font-weight:700}
+.correction-input{display:block;width:100%;resize:vertical;min-height:84px;max-height:200px;background:#12141b;color:#f6f7fb;border:1px solid #434657;border-radius:15px;padding:14px;font-size:15px;line-height:1.55}
+.correction-reason{color:#d9c6a5;background:#322c20;border-radius:8px;font-size:11px;padding:8px 11px;margin:7px 0;line-height:1.4}
+.sheet-scroll .guest-link-manager>.outline-wide{margin:11px 0}
+@media(max-width:360px){.pending-head{align-items:flex-start;flex-direction:column}.guest-link-row{gap:7px}}
