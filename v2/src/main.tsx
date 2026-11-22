@@ -112,7 +112,13 @@ function App(){
   if(!db||!guestToken||demoMode)return;
   let active=true;
   const token=guestToken;
-  const refresh=()=>{if(!document.hidden&&active)void refreshGuest(token).catch(e=>{if(active){setError(errMsg(e));setSyncMode('fallback')}})};
+  let lastRefresh=0;
+  const refresh=()=>{
+   const now=Date.now();
+   if(!active||document.hidden||now-lastRefresh<1500)return;
+   lastRefresh=now;
+   void refreshGuest(token).catch(e=>{if(active){setError(errMsg(e));setSyncMode('fallback')}});
+  };
   const channel=db.channel('holdings:game:'+token,{config:{private:false}})
    .on('broadcast',{event:'refresh'},refresh)
    .subscribe(status=>{
@@ -274,7 +280,7 @@ function App(){
  }
  async function refreshGuest(token:string){
   if(!db)return;const {data,error:e}=await db.rpc('holdings_guest_snapshot',{p_invite_token:token});
-  if(e)throw e;if(!data)throw new Error('Invite not found or no longer valid');setGuest(data as GuestSnapshot);
+  if(e)throw e;if(!data){setGuest(null);throw new Error('Invite not found or no longer valid')}setGuest(data as GuestSnapshot);
  }
  async function openGuest(token:string){
   if(!db)return;setDemoMode(false);setError('');setLoading(true);setGame(null);setGuest(null);setTab('table');
