@@ -325,8 +325,29 @@ function App(){
       </article>)}
      {!seatBalances.some(s=>s.total>0)&&<div className="empty-frame"><Wallet size={30}/><p>Cash-outs become available after the first buy-in.</p></div>}
     </>:<>
-     <div className="section-head"><h2>Bank overview</h2></div><div className="summary-card"><div><span>Total buy-ins</span><strong>{fmt(sums.ins,curr)}</strong></div><div><span>Total cash-outs</span><strong>{fmt(sums.outs,curr)}</strong></div><div><span>Chips remaining</span><strong>{fmt(sums.onTable,curr)}</strong></div></div><div className="section-head"><h2>Player results</h2></div>{seatBalances.map(s=><article className="result-row" key={s.id}><span>{s.display_name_snapshot}</span><strong className={s.hasCashout?(s.cashout-s.total>=0?'amount-positive':'amount-negative'):''}>{s.hasCashout?fmt(s.cashout-s.total,curr):'In play'}</strong></article>)}
-     <div className="info-note"><ShieldCheck size={17}/> Final settlement is available after all players cash out and bank totals reconcile.</div>
+      <div className="section-head"><h2>Bank overview</h2></div>
+      <div className="summary-card">
+       <div><span>Total buy-ins</span><strong>{fmt(settlement.totalBuyin,curr)}</strong></div>
+       <div><span>Total cash-outs</span><strong>{fmt(settlement.totalCashout,curr)}</strong></div>
+       <div><span>Bank difference</span><strong className={settlement.discrepancy===0?'amount-positive':'amount-negative'}>{settlement.discrepancy>0?'+':''}{fmt(settlement.discrepancy,curr)}</strong></div>
+       <div><span>Players cashed out</span><strong>{settlement.cashedOutCount}/{settlement.participants.length}</strong></div>
+      </div>
+      {!settlement.allOut?<div className="info-note"><ShieldCheck size={17}/> Settlement unlocks when every player with a buy-in has cashed out. {settlement.cashedOutCount} of {settlement.participants.length} complete.</div>:
+       <>
+        <div className="section-head"><h2>Player results</h2></div>
+        {settlement.players.filter(p=>p.buyin>0).sort((a,b)=>(b.net??0)-(a.net??0)).map(s=>
+         <article className="result-row" key={s.id}><span>{s.name}</span>
+          <strong className={(s.net??0)>0?'amount-positive':(s.net??0)<0?'amount-negative':''}>{s.net===0?'Even':(s.net??0)>0?'+':'−'}{s.net===0?'':fmt(Math.abs(s.net||0),curr)}</strong>
+         </article>)}
+        <div className="section-head"><h2>Who pays whom</h2></div>
+        {!settlement.transfers.length?<div className="empty-mini">No transfers needed.</div>:settlement.transfers.map((t,i)=>
+          <div key={i} className="transfer-row"><div><strong>{t.from}</strong><span>pays</span><strong>{t.to}</strong></div><b>{fmt(t.amount,curr)}</b></div>)}
+        {settlement.discrepancy!==0&&<div className="reconcile-warning">Bank is {fmt(Math.abs(settlement.discrepancy),curr)} {settlement.discrepancy>0?'overpaid':'short'}. Transfers cannot fully reconcile until stacks are corrected.</div>}
+        <button className="primary-btn" onClick={()=>setSheet({kind:'export'})}><FileText size={18}/> Export session summary</button>
+        {game&&game.status==='live'&&<button className="outline-wide" disabled={!settlement.ready||loading} onClick={()=>setSheet({kind:'close'})}><Check size={18}/> Close game</button>}
+        {game&&game.status==='closed'&&<div className="info-note"><Check size={17}/> Game closed. Results are saved in History.</div>}
+       </>}
+
     </>}
     </div></main>
   </>:!user?<div className="auth-view"><div className="intro-label">YOUR PRIVATE LEDGER</div><h1>Every chip.<br/>Accounted for.</h1><p>A cleaner way to run your home game. Record buy-ins, track results and let friends watch live.</p><form onSubmit={async e=>{e.preventDefault();if(!db)return;setLoading(true);setError('');const {error:e2}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});setLoading(false);if(e2)setError(e2.message);else setEmailSent(true)}}><label>Email address</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="email" placeholder="you@example.com"/><button className="primary-btn" disabled={loading}>{loading?'Sending…':emailSent?'Send another login link':'Sign in with email'} <ArrowRight size={17}/></button>{emailSent&&<div className="info-note"><Check size={17}/> Check your email for a secure sign-in link.</div>}</form><button className="outline-wide" type="button" onClick={startDemo}>Explore demo without signing in <ArrowRight size={17}/></button><p className="muted-detail">Demo uses sample data. Your existing Holdings records are not affected.</p></div>:
