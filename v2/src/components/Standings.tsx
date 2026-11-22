@@ -1,4 +1,3 @@
-import React from 'react';
 import {TrendingUp} from 'lucide-react';
 import {calculateSettlement} from '../lib/settlement.mjs';
 
