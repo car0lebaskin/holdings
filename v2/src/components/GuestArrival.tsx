@@ -69,9 +69,9 @@ export function GuestArrival({snapshot,selectedSeat,onSelect,onViewTable,resolve
      </div>)}
     </div>}
   </>}
-  <button className="primary-btn guest-view-table" onClick={onViewTable} type="button">
+  {p&&<button className="primary-btn guest-view-table" onClick={onViewTable} type="button">
     View full table <ArrowRight size={18}/>
-  </button>
+  </button>}
   <div className="info-note"><ShieldCheck size={17}/>{demo?'Demo values are illustrative and cannot be changed.':'Choosing a name personalizes the display; it does not verify identity. Guests cannot edit the table.'}</div>
  </div>;
 }
