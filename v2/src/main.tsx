@@ -299,12 +299,30 @@ function App(){
     {tab==='table'?<>
      <div className="section-head"><h2>Players <span>{activeSeats.length}</span></h2>{game&&!closed&&<button className="small-action" onClick={()=>setSheet({kind:'seat'})}><Plus size={16}/> Add player</button>}</div>
      {!activeSeats.length&&<div className="empty-frame"><Users size={32}/><h3>No players seated</h3><p>Add the first player to start tracking this table.</p></div>}
-     {seatBalances.map(s=><article className="player-row" key={s.id}><Avatar name={s.display_name_snapshot} path={s.avatar_path} onClick={game&&!closed?()=>{const p=avatarProfile(s);if(p){setImageProfile(p);setSheet({kind:'player',seatId:s.id})}}:undefined}/><div className="player-main"><strong>{s.display_name_snapshot}</strong><span>{s.count?fmt(s.total,curr)+' · '+s.count+' buy-in'+(s.count>1?'s':''): 'No buy-ins yet'}</span></div><div className="player-side">{s.hasCashout?<span className="mini-status paid">Cashed out</span>:s.count?<span className="mini-status">Playing</span>:<span className="mini-status quiet">Seated</span>}{game&&!closed&&!s.hasCashout&&<button className="row-arrow" aria-label={'Record buy-in for '+s.display_name_snapshot} onClick={()=>{setAmount(String((game.default_buyin_cents||10000)/100));setSheet({kind:'buyin',seatId:s.id})}}><ChevronRight size={18}/></button>}</div></article>)}
+     {seatBalances.map(s=><article className="player-row" key={s.id}>
+       <Avatar name={s.display_name_snapshot} path={s.avatar_path} onClick={game&&!closed?()=>{const p=avatarProfile(s);if(p){setImageProfile(p);setSheet({kind:'player',seatId:s.id})}}:undefined}/>
+       <div className="player-main"><strong>{s.display_name_snapshot}</strong>
+        <span>{s.count?fmt(s.total,curr)+' · '+s.count+' buy-in'+(s.count>1?'s':''):'No buy-ins yet'}</span>
+        {game&&<button className="ledger-link" onClick={()=>void openLedger(s.id)}>Signed ledger <ChevronRight size={13}/></button>}
+       </div>
+       <div className="player-side">
+        {s.hasCashout?<span className="mini-status paid">Cashed out</span>:s.count?<span className="mini-status">Playing</span>:<span className="mini-status quiet">Seated</span>}
+        {game&&!closed&&!s.hasCashout&&<button className="row-arrow" title="Record buy-in" aria-label={'Record buy-in for '+s.display_name_snapshot} onClick={()=>openTransaction('buyin',s.id)}><Plus size={19}/></button>}
+       </div>
+      </article>)}
      {game&&!closed&&<button className="primary-btn add-transaction" onClick={()=>setSheet({kind:'seat'})}><Plus size={19}/> Seat player</button>}
      {isGuest&&<div className="info-note"><ShieldCheck size={17}/>{demoMode?'Demo preview: sample data only. No changes are saved.':'Guest access is read only. The host controls all changes.'}</div>}
     </>:tab==='cashout'?<>
      <div className="section-head"><h2>Cash out</h2></div>
-     {seatBalances.filter(s=>s.total>0).map(s=><article className="player-row" key={s.id}><Avatar name={s.display_name_snapshot} path={s.avatar_path}/><div className="player-main"><strong>{s.display_name_snapshot}</strong><span>In for {fmt(s.total,curr)}</span></div>{s.hasCashout?<span className="amount-positive">{fmt(s.cashout,curr)}</span>:game&&!closed?<button className="outline-btn" onClick={()=>{setAmount('');setSheet({kind:'cashout',seatId:s.id})}}>Cash out</button>:<span className="mini-status quiet">In play</span>}</article>)}
+     {seatBalances.filter(s=>s.total>0).map(s=><article className="player-row" key={s.id}>
+       <Avatar name={s.display_name_snapshot} path={s.avatar_path}/>
+       <div className="player-main"><strong>{s.display_name_snapshot}</strong><span>In for {fmt(s.total,curr)}</span>
+        {game&&<button className="ledger-link" onClick={()=>void openLedger(s.id)}>Signed ledger <ChevronRight size={13}/></button>}
+       </div>
+       {s.hasCashout?<div className="cashout-result"><strong className={s.cashout-s.total>=0?'amount-positive':'amount-negative'}>{s.cashout-s.total>=0?'+':'−'}{fmt(Math.abs(s.cashout-s.total),curr)}</strong>
+          {game&&!closed&&<button className="recount-action" onClick={()=>{const tx=ledger.find(x=>x.seat_id===s.id&&x.kind==='cashout'&&!x.voided_at);if(tx)void voidTransaction(tx)}}><RotateCcw size={13}/> Recount</button>}</div>
+        :game&&!closed?<button className="outline-btn" onClick={()=>openTransaction('cashout',s.id)}>Cash out</button>:<span className="mini-status quiet">In play</span>}
+      </article>)}
      {!seatBalances.some(s=>s.total>0)&&<div className="empty-frame"><Wallet size={30}/><p>Cash-outs become available after the first buy-in.</p></div>}
     </>:<>
      <div className="section-head"><h2>Bank overview</h2></div><div className="summary-card"><div><span>Total buy-ins</span><strong>{fmt(sums.ins,curr)}</strong></div><div><span>Total cash-outs</span><strong>{fmt(sums.outs,curr)}</strong></div><div><span>Chips remaining</span><strong>{fmt(sums.onTable,curr)}</strong></div></div><div className="section-head"><h2>Player results</h2></div>{seatBalances.map(s=><article className="result-row" key={s.id}><span>{s.display_name_snapshot}</span><strong className={s.hasCashout?(s.cashout-s.total>=0?'amount-positive':'amount-negative'):''}>{s.hasCashout?fmt(s.cashout-s.total,curr):'In play'}</strong></article>)}
