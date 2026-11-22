@@ -1,22 +1,25 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {SignaturePad} from './components/SignaturePad';
 import {Standings} from './components/Standings';
+import {Greeting} from './components/Greeting';
+import {ClosedGameRow} from './components/ClosedGameRow';
+import {EdgeGlow} from './components/EdgeGlow';
 import {calculateSettlement, exportSummary} from './lib/settlement.mjs';
 import { createRoot } from 'react-dom/client';
 import { createClient, type User } from '@supabase/supabase-js';
-import { ArrowLeft, ArrowRight, Camera, Check, ChevronRight, CircleDollarSign, Copy, Download, FileText, History, Home, ImagePlus, LoaderCircle, Plus, RotateCcw, Share2, ShieldCheck, Smartphone, TrendingUp, Users, Wallet, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Camera, Check, ChevronRight, CircleDollarSign, Copy, Download, FileText, History, Home, ImagePlus, LoaderCircle, Plus, RotateCcw, ChevronDown, Trash2, Share2, ShieldCheck, Smartphone, TrendingUp, Users, Wallet, X } from 'lucide-react';
 import './styles.css';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
 const db = supabaseUrl && supabaseKey ? createClient(supabaseUrl,supabaseKey) : null;
 
-type Game={id:string;owner_id:string;title:string;stakes:string;currency:string;default_buyin_cents:number;status:'live'|'closed';invite_token:string;started_at:string};
+type Game={id:string;owner_id:string;title:string;stakes:string;currency:string;default_buyin_cents:number;status:'live'|'closed';invite_token:string;started_at:string;deleted_at:string|null};
 type Profile={id:string;owner_id:string;display_name:string;avatar_path:string|null};
 type Seat={id:string;game_id:string;profile_id:string;display_name_snapshot:string;created_at:string};
 type Ledger={id:string;game_id:string;seat_id:string;owner_id:string;kind:'buyin'|'cashout';amount_cents:number;voided_at:string|null;signature_path:string|null;created_at:string};
 type GuestSnapshot={game:{id:string;title:string;stakes:string;currency:string;status:string;started_at:string};players:{seat_id:string;name:string;avatar_path:string|null}[];transactions:{id:string;seat_id:string;kind:'buyin'|'cashout';amount_cents:number;voided:boolean;created_at:string}[]};
-type SheetState={kind:'game'|'seat'|'player'|'buyin'|'cashout'|'share'|'ledger'|'export'|'close'|'install'|'none';seatId?:string};
+type SheetState={kind:'game'|'seat'|'player'|'buyin'|'cashout'|'share'|'ledger'|'export'|'close'|'install'|'remove'|'none';seatId?:string;gameId?:string};
 type InstallEvent=Event & {prompt:()=>Promise<void>;userChoice:Promise<{outcome:string}>};
 type SettledPlayer={id:string;name:string;buyin:number;cashout:number|null;net:number|null;cashedOut:boolean;count:number};
 
@@ -52,6 +55,9 @@ function App(){
  const [guestToken,setGuestToken]=useState('');
  const [demoMode,setDemoMode]=useState(false);
  const [section,setSection]=useState<'home'|'stats'|'history'>('home');
+ const [homeDragX,setHomeDragX]=useState(0);
+ const [homeSwipeDir,setHomeSwipeDir]=useState<'left'|'right'>('left');
+ const [historyEditing,setHistoryEditing]=useState(false);
  const [tab,setTab]=useState<'table'|'cashout'|'settle'>('table');
  const [sheet,setSheet]=useState<SheetState>({kind:'none'});
  const [loading,setLoading]=useState(false);
@@ -73,11 +79,17 @@ function App(){
  const [imageProfile,setImageProfile]=useState<Profile|null>(null);
  const photoRef=useRef<HTMLInputElement>(null);
  const touchPoint=useRef<{x:number;y:number}|null>(null);
+ const homeTouch=useRef<{x:number;y:number}|null>(null);
+ const homeSwipeConsumed=useRef(false);
  const busy=useRef(false);
  const isGuest=!!guest;
  const active=!!game||isGuest;
  const curr=game?.currency||guest?.game.currency||'RM';
  const activeSeats=isGuest?(guest?.players||[]).map(p=>({id:p.seat_id,display_name_snapshot:p.name,profile_id:'',game_id:'',created_at:'',avatar_path:p.avatar_path})):seats.map(s=>({...s,avatar_path:profiles.find(p=>p.id===s.profile_id)?.avatar_path||null}));
+ const visibleGames=games.filter(g=>!g.deleted_at);
+ const liveGames=visibleGames.filter(g=>g.status==='live');
+ const closedGames=visibleGames.filter(g=>g.status==='closed');
+ const removedGames=games.filter(g=>!!g.deleted_at&&g.status==='closed');
  const currentLedger=isGuest?(guest?.transactions||[]):ledger;
  const sums=useMemo(()=>pool(currentLedger),[currentLedger]);
  const settlement=calculateSettlement(activeSeats,currentLedger);
@@ -119,7 +131,7 @@ function App(){
    const [g,p]=await Promise.all([db.from('holdings_games').select('*').eq('owner_id',user.id).order('started_at',{ascending:false}),db.from('holdings_profiles').select('*').eq('owner_id',user.id).order('display_name')]);
    if(g.error)throw g.error;if(p.error)throw p.error;
    setGames(g.data as Game[]);setProfiles(p.data as Profile[]);
-   void refreshStats((g.data as Game[]).filter(game=>game.status==='closed'));
+   void refreshStats((g.data as Game[]).filter(game=>game.status==='closed'&&!game.deleted_at));
   }catch(e){setError(errMsg(e))}
  }
  async function refreshStats(closed:Game[]){
@@ -134,6 +146,61 @@ function App(){
    if(s.error)throw s.error;if(t.error)throw t.error;
    setStatSeats(s.data as Seat[]);setStatLedger(t.data as Ledger[]);
   }catch(e){setError(errMsg(e))}finally{setStatsLoading(false)}
+ }
+ async function removeClosedGame(id:string){
+   if(!db||!user||busy.current)return;
+   const target=games.find(g=>g.id===id);
+   if(!target||target.status!=='closed'||target.deleted_at){setError('Only completed games can be removed');return}
+   busy.current=true;setLoading(true);setError('');
+   try{
+    const {data,error:e}=await db.from('holdings_games')
+      .update({deleted_at:new Date().toISOString()})
+      .eq('id',id).eq('owner_id',user.id).eq('status','closed').is('deleted_at',null).select('*').single();
+    if(e)throw e;
+    setGames(prev=>prev.map(g=>g.id===id?data as Game:g));
+    setHistoryEditing(false);setSheet({kind:'none'});
+    void refreshHome();noticeNow('Removed from History. You can restore it below.');
+   }catch(e){fail(e)}finally{busy.current=false;setLoading(false)}
+ }
+ async function restoreClosedGame(id:string){
+   if(!db||!user||busy.current)return;
+   busy.current=true;setLoading(true);setError('');
+   try{
+    const {data,error:e}=await db.from('holdings_games')
+      .update({deleted_at:null})
+      .eq('id',id).eq('owner_id',user.id).eq('status','closed').not('deleted_at','is',null).select('*').single();
+    if(e)throw e;
+    setGames(prev=>prev.map(g=>g.id===id?data as Game:g));
+    void refreshHome();noticeNow('Game restored to History');
+   }catch(e){fail(e)}finally{busy.current=false;setLoading(false)}
+ }
+ function changeHomeSection(next:'home'|'stats'|'history'){
+  if(next===section)return;
+  const order:['home','stats','history']=['home','stats','history'];
+  setHomeSwipeDir(order.indexOf(next)>order.indexOf(section)?'left':'right');
+  setHistoryEditing(false);setSection(next);
+  window.scrollTo({top:0,behavior:'instant' as ScrollBehavior});
+ }
+ function onHomeTouchStart(e:React.TouchEvent){
+   if((e.target as HTMLElement).closest('input,textarea,select,canvas,.sheet,[role="dialog"]'))return;
+   const p=e.touches[0];if(p)homeTouch.current={x:p.clientX,y:p.clientY};
+ }
+ function onHomeTouchMove(e:React.TouchEvent){
+   const p=e.touches[0],start=homeTouch.current;if(!p||!start)return;
+   const dx=p.clientX-start.x,dy=p.clientY-start.y;
+   if(Math.abs(dx)>12&&Math.abs(dx)>Math.abs(dy)*1.4)setHomeDragX(Math.max(-75,Math.min(75,dx*.42)));
+ }
+ function onHomeTouchEnd(e:React.TouchEvent){
+   const start=homeTouch.current;homeTouch.current=null;setHomeDragX(0);
+   if(!start)return;
+   const p=e.changedTouches[0],dx=p.clientX-start.x,dy=p.clientY-start.y;
+   if(Math.abs(dx)<66||Math.abs(dx)<Math.abs(dy)*1.4)return;
+   const order:['home','stats','history']=['home','stats','history'];
+   const next=order[Math.max(0,Math.min(2,order.indexOf(section)+(dx<0?1:-1)))];
+   if(next===section)return;
+   homeSwipeConsumed.current=true;
+   window.setTimeout(()=>{homeSwipeConsumed.current=false},320);
+   changeHomeSection(next);
  }
  async function openGame(item:Game){
   if(!db||!user)return;
