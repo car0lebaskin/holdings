@@ -282,3 +282,44 @@ form>.primary-btn{margin-top:24px}
 .standings-page .section-head h2{font-size:19px;min-width:0}
 .stats-info{margin-top:20px;margin-bottom:30px}
 @media(max-width:380px){.stats-overview{gap:5px}.stats-overview>div{padding:12px 9px}.stats-overview span{font-size:10px}.stats-overview strong{font-size:22px}.stats-legend strong{font-size:10px}}
+
+
+/* One-step seat + first buy-in */
+.seat-first-form .seat-profile-tip{font-size:11px;color:#949aaf;margin-top:8px;line-height:1.5}
+.seat-first-form .quick-amounts{margin:12px 0 19px}
+.seat-first-form label{margin-top:16px}
+.seat-first-form .sig-root{margin-bottom:12px}
+.sheet:has(#seat-first-buyin-form) .sheet-scroll{padding-bottom:14px}
+
+/* Realtime status: a truthful indication of connected push or fallback. */
+.page-title{position:relative}
+.sync-indicator{display:flex;align-items:center;gap:6px;color:#939bb0;font-size:11px;font-weight:750;margin:7px 0 4px}
+.sync-dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#d9b05b;box-shadow:0 0 0 3px rgba(217,176,91,.12)}
+.sync-connected{background:#47d19a;box-shadow:0 0 0 3px rgba(71,209,154,.13)}
+
+/* Wise-style player specific analytics. */
+.player-breakdown{margin-top:24px;padding-top:11px;border-top:1px solid #343540}
+.player-analytics-controls{display:flex;gap:9px;align-items:center;margin:11px 0 13px}
+.focus-player-select{position:relative;flex:1;min-width:0}
+.focus-player-select select{font-family:'Inter Tight','Inter',system-ui,sans-serif;font-weight:750;font-size:14px;letter-spacing:-.02em;background:#222432;border:1px solid #3b4158;border-radius:13px;padding:11px 30px 11px 11px;min-height:45px;appearance:none;-webkit-appearance:none;color:#eef0ff;width:100%;outline:none}
+.focus-player-select svg{position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:#b5c4ed}
+.analytics-periods{display:flex;gap:3px;background:#20232e;border-radius:12px;padding:4px;flex:0 0 auto}
+.analytics-periods button{border:0;background:none;color:#909bb4;border-radius:9px;padding:10px 9px;font-weight:800;font-size:11px}
+.analytics-periods button.on{background:#345ed2;color:#fff}
+.player-focus-card{background:radial-gradient(circle at 10% 0,rgba(58,94,229,.19),transparent 70%),#191c28;border:1px solid #343d5a;border-radius:21px;padding:18px 15px 16px}
+.focus-net-label{font-weight:850;font-size:11px;letter-spacing:.08em;color:#a9b8ea}
+.focus-net{font-family:'Inter Tight','Inter',system-ui,sans-serif;font-weight:900;letter-spacing:-.045em;font-size:clamp(26px,7vw,36px);margin:7px 0 4px}
+.player-focus-card>svg{width:100%;height:auto;max-height:200px;display:block}
+.player-kpi-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:5px}
+.player-kpi-grid>div{display:flex;flex-direction:column;gap:6px;padding:11px 13px;border-radius:13px;background:#11151f;border:1px solid #2e3445;min-width:0}
+.player-kpi-grid small{font-size:10px;color:#9ba5be}
+.player-kpi-grid strong{font-weight:800;font-size:15px;color:#f4f5ff;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player-session-history{background:#151820;border:1px solid #2d3242;border-radius:17px;overflow:hidden;padding:2px 13px}
+.player-session-row{display:flex;justify-content:space-between;align-items:center;gap:13px;padding:13px 2px;border-bottom:1px solid #303342}
+.player-session-row:last-child{border-bottom:0}
+.player-session-row>div{min-width:0;display:flex;flex-direction:column;gap:4px}
+.player-session-row>div strong{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player-session-row small{font-size:11px;color:#9da4b8}
+.player-session-row>strong{font-size:13px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.player-breakdown .empty-mini{display:flex;align-items:center;gap:8px;line-height:1.5}
+@media(max-width:360px){.player-analytics-controls{flex-wrap:wrap}.focus-player-select{flex-basis:100%}.analytics-periods{width:100%;justify-content:space-around}.analytics-periods button{flex:1}}
