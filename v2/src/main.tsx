@@ -504,6 +504,28 @@ function App(){
   anchor.download='Holdings-'+(game?.title||guest?.game.title||'Game').replace(/[^a-z0-9]+/gi,'-')+'-summary.txt';
   document.body.append(anchor);anchor.click();anchor.remove();URL.revokeObjectURL(link);
  }
+ async function shareSettlementImage(){
+  if(!game||!settlement.ready||game.status!=='closed'){setError('Close and reconcile the game before sharing a final settlement');return}
+  setLoading(true);setError('');
+  try{
+   const blob=await makeSettlementImage({
+    title:game.title,currency:game.currency,stakes:game.stakes,
+    started_at:game.started_at,status:game.status
+   },settlement);
+   const fileName='holdings-'+game.title.replace(/[^a-z0-9]+/gi,'-').toLowerCase()+'-settlement.png';
+   const image=new File([blob],fileName,{type:'image/png'});
+   if(navigator.canShare?.({files:[image]})&&navigator.share){
+    try{await navigator.share({files:[image],title:'Holdings — '+game.title})}
+    catch(e){if((e as Error).name==='AbortError')return;throw e}
+   }else{
+    const link=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=link;a.download=fileName;
+    document.body.append(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(link),10000);
+    noticeNow('Settlement image saved');
+   }
+  }catch(e){fail(e)}finally{setLoading(false)}
+ }
  function openTransaction(kind:'buyin'|'cashout',seatId:string){
   setSignatureBlob(null);
   setAmount(kind==='buyin'?String((game?.default_buyin_cents||10000)/100):'');
@@ -574,7 +596,19 @@ function App(){
     resolveAvatar={avatarUrl} demo={demoMode} scoped={guest.scope==='player'}/>:<>
    <div className="topline"><button className="text-link" onClick={isGuest?()=>setGuestShowTable(false):goHome}><ArrowLeft size={18}/> {isGuest?'My buy-ins':'All games'}</button><div className="right-actions"><span className={'live-pill '+(closed?'muted':'')}><i/>{closed?'Closed':'Live'}</span>{game&&<button className="icon-control" title="Share table" onClick={()=>setSheet({kind:'share'})}><Share2 size={19}/></button>}</div></div>
    <div className="page-title"><div className="eyebrow">{isGuest?'YOU ARE VIEWING':'CURRENT GAME'}</div><div className="sync-indicator" aria-live="polite"><span className={syncMode==='live'?'sync-dot sync-connected':'sync-dot'}/>{demoMode?'Demo data':syncMode==='live'?'Live sync':'Auto-refresh'}</div><h1>{titleText}</h1><p>{game?.stakes||guest?.game.stakes||'Cash game'} · {curr}{isGuest?' · Read only':''}</p></div>
-   <section className="hero"><div className="eyebrow blue-label">TOTAL BUY-INS</div><div className="hero-amount"><span>{curr}</span>{(sums.ins/100).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2})}</div><div className="hero-grid"><div><small>Chips in play</small><strong>{fmt(sums.onTable,curr)}</strong></div><div><small>Paid out</small><strong>{fmt(sums.outs,curr)}</strong></div><div><small>Players</small><strong>{activeSeats.length}</strong></div></div></section>
+   {game&&pendingOps.length>0&&<section className="pending-panel" aria-live="polite">
+     <div className="pending-head"><strong>{pendingOps.length} signed {pendingOps.length===1?'entry':'entries'} awaiting sync</strong>
+      <button className="small-action" disabled={queueBusy||!navigator.onLine}
+        onClick={()=>void flushPending()}>{queueBusy?'Syncing…':'Retry sync'}</button>
+     </div>
+     <p>These records are saved on this device but not included in table totals until the server confirms them. Do not close the game before they sync.</p>
+     {pendingOps.map(op=><div className="pending-item" key={op.id}>
+      <div><strong>{op.kind==='buyin'?'Buy-in':'Cash-out'} · {fmt(op.amountCents,curr)}</strong>
+       <small>{seats.find(s=>s.id===op.seatId)?.display_name_snapshot||'Player'} · {op.lastError||'Awaiting server confirmation'}</small></div>
+      <button type="button" onClick={()=>void discardPending(op.id)}>Discard</button>
+     </div>)}
+    </section>}
+    <section className="hero"><div className="eyebrow blue-label">TOTAL BUY-INS</div><div className="hero-amount"><span>{curr}</span>{(sums.ins/100).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2})}</div><div className="hero-grid"><div><small>Chips in play</small><strong>{fmt(sums.onTable,curr)}</strong></div><div><small>Paid out</small><strong>{fmt(sums.outs,curr)}</strong></div><div><small>Players</small><strong>{activeSeats.length}</strong></div></div></section>
    <div className="segmented" role="tablist" aria-label="Table sections">{(['table','cashout','settle'] as const).map(t=><button type="button" role="tab" aria-selected={tab===t} className={tab===t?'selected':''} onClick={()=>changeTab(t)} key={t}>{t==='table'?'Table':t==='cashout'?'Cash out':'Settle'}</button>)}</div>
    <main onTouchStart={onSwipeStart} onTouchMove={onSwipeMove} onTouchEnd={onSwipeEnd}
     onTouchCancel={()=>{touchPoint.current=null;setDragX(0)}} className="tab-content"
@@ -628,7 +662,7 @@ function App(){
           <div key={i} className="transfer-row"><div><strong>{t.from}</strong><span>pays</span><strong>{t.to}</strong></div><b>{fmt(t.amount,curr)}</b></div>)}
         {settlement.discrepancy!==0&&<div className="reconcile-warning">Bank is {fmt(Math.abs(settlement.discrepancy),curr)} {settlement.discrepancy>0?'overpaid':'short'}. Transfers cannot fully reconcile until stacks are corrected.</div>}
         <button className="primary-btn" onClick={()=>setSheet({kind:'export'})}><FileText size={18}/> Export session summary</button>
-        {game&&game.status==='live'&&<button className="outline-wide" disabled={!settlement.ready||loading} onClick={()=>setSheet({kind:'close'})}><Check size={18}/> Close game</button>}
+        {game&&game.status==='live'&&<button className="outline-wide" disabled={!settlement.ready||loading||pendingOps.length>0} onClick={()=>setSheet({kind:'close'})}><Check size={18}/> Close game</button>}
         {game&&game.status==='closed'&&<div className="info-note"><Check size={17}/> Game closed. Results are saved in History.</div>}
        </>}
 
@@ -714,7 +748,7 @@ function App(){
        </button>)}
       </div>
       <label>Player signature</label>
-      <p className="subtle-copy">The player signs to confirm the first buy-in amount.</p>
+      <p className="subtle-copy">The player signs to confirm the first buy-in amount. Seating requires an internet connection; offline queueing is available for later signed buy-ins and cash-outs.</p>
       <SignaturePad key={'seat-'+(game?.id||'')} resetId={'seat-'+(game?.id||'')}
        onChange={blob=>{seatOpRef.current=null;setSignatureBlob(blob)}}/>
     </form>}
@@ -747,6 +781,7 @@ function App(){
     </div>}
     {sheet.kind==='export'&&<>
       <p className="subtle-copy">Player profits, losses and the exact transfers to settle this table.</p>
+      {game?.status==='closed'&&settlement.ready&&<button className="primary-btn" onClick={()=>void shareSettlementImage()}><Share2 size={18}/> Share settlement image</button>}
       <textarea className="export-text" readOnly value={summaryText} onClick={e=>e.currentTarget.select()}/>
       <button className="primary-btn" onClick={async()=>{try{await navigator.clipboard.writeText(summaryText);noticeNow('Summary copied')}catch(e){fail(e)}}}><Copy size={18}/> Copy summary</button>
       <button className="outline-wide" onClick={downloadSummary}><Download size={18}/> Download .txt summary</button>
@@ -755,7 +790,7 @@ function App(){
     {sheet.kind==='close'&&<>
       <div className="info-note"><ShieldCheck size={19}/> Closing locks all transactions. Results remain available in History and can be exported afterward.</div>
       <div className="summary-card"><div><span>Bank difference</span><strong>{fmt(settlement.discrepancy,curr)}</strong></div><div><span>Players settled</span><strong>{settlement.cashedOutCount}/{settlement.participants.length}</strong></div></div>
-      <button className="primary-btn" disabled={!settlement.ready||loading} onClick={()=>void closeGame()}><Check size={18}/> Confirm close game</button>
+      <button className="primary-btn" disabled={!settlement.ready||loading||pendingOps.length>0} onClick={()=>void closeGame()}><Check size={18}/> Confirm close game</button>
       <button className="outline-wide" onClick={()=>setSheet({kind:'none'})}>Keep playing</button>
     </>}
     {sheet.kind==='void'&&<>
