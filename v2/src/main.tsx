@@ -192,6 +192,16 @@ function App(){
  },[user?.id,game?.id,demoMode]);
 
  useEffect(()=>{
+  if(!user?.id||!game?.id||demoMode){setPendingOps([]);return}
+  let active=true;
+  void listPending(user.id,game.id).then(ops=>{if(active)setPendingOps(ops)}).catch(e=>{if(active)setError(errMsg(e))});
+  const onOnline=()=>{void flushPending()};
+  window.addEventListener('online',onOnline);
+  if(navigator.onLine)void flushPending();
+  return()=>{active=false;window.removeEventListener('online',onOnline)}
+ },[user?.id,game?.id,demoMode]);
+
+ useEffect(()=>{
    const check=()=>setStandalone(window.matchMedia('(display-mode: standalone)').matches||(navigator as Navigator & {standalone?:boolean}).standalone===true);
    check();const onPrompt=(event:Event)=>{event.preventDefault();setInstallEvent(event as InstallEvent)};
    const onInstalled=()=>{setInstallEvent(null);check()};
@@ -359,30 +369,83 @@ function App(){
   }catch(e){fail(e)}
   finally{busy.current=false;setLoading(false)}
  }
+ async function refreshPending(){
+  if(!user||!game)return;
+  try{setPendingOps(await listPending(user.id,game.id))}
+  catch(e){setError('Offline storage error: '+errMsg(e))}
+ }
+ async function flushPending(){
+  if(!db||!user||!game||syncingRef.current||!navigator.onLine)return;
+  syncingRef.current=true;setQueueBusy(true);
+  try{
+   const operations=await listPending(user.id,game.id);
+   for(const op of operations){
+    if(!navigator.onLine)break;
+    try{
+     const current=await db.from('holdings_ledger').select('*').eq('id',op.id).eq('owner_id',user.id).maybeSingle();
+     if(current.error)throw current.error;
+     let record=current.data as Ledger|null;
+     if(!record){
+      const signaturePath=op.ownerId+'/'+op.gameId+'/'+op.id+'.png';
+      const uploaded=await db.storage.from('holdings-signatures').upload(signaturePath,op.signature,{
+       contentType:'image/png',upsert:false
+      });
+      if(uploaded.error&&!/already exists|duplicate|exists/i.test(uploaded.error.message))throw uploaded.error;
+      const write=await db.from('holdings_ledger').insert({
+       id:op.id,client_operation_id:op.id,owner_id:op.ownerId,game_id:op.gameId,
+       seat_id:op.seatId,kind:op.kind,amount_cents:op.amountCents,signature_path:signaturePath
+      }).select('*').single();
+      if(write.error){
+       if(write.error.code==='23505'){
+        const check=await db.from('holdings_ledger').select('*').eq('id',op.id).eq('owner_id',user.id).maybeSingle();
+        if(check.error||!check.data)throw write.error;
+        record=check.data as Ledger;
+       }else throw write.error;
+      }else record=write.data as Ledger;
+     }
+     if(record.owner_id!==op.ownerId||record.game_id!==op.gameId||record.seat_id!==op.seatId||
+      record.kind!==op.kind||Number(record.amount_cents)!==op.amountCents)
+      throw new Error('Server record mismatch; cannot clear this pending entry');
+     await deletePending(op.id);
+     setLedger(prev=>prev.some(t=>t.id===record!.id)?prev:[...prev,record!]);
+    }catch(e){
+     await updatePendingError(op,errMsg(e));
+     if(!navigator.onLine)break;
+    }
+   }
+  }catch(e){setError('Pending sync error: '+errMsg(e))}
+  finally{syncingRef.current=false;setQueueBusy(false);await refreshPending()}
+ }
+ async function discardPending(id:string){
+  if(!window.confirm('Discard this unsynced signed entry? This cannot be recovered from the server.'))return;
+  try{await deletePending(id);await refreshPending();noticeNow('Local pending entry discarded')}
+  catch(e){setError(errMsg(e))}
+ }
  async function addTransaction(kind:'buyin'|'cashout',seatId:string){
-  if(!db||!game||!user||busy.current)return;
+  if(!game||!user||busy.current)return;
   const cents=toCents(amount);
   if(cents===null||(kind==='buyin'&&cents===0)){setError('Enter a valid amount');return}
   if(!signatureBlob){setError('Player signature is required');return}
   if(game.status==='closed'){setError('This game is closed');return}
-  const hasCashout=ledger.some(x=>x.seat_id===seatId&&x.kind==='cashout'&&!x.voided_at);
+  const otherCashout=ledger.some(x=>x.seat_id===seatId&&x.kind==='cashout'&&!x.voided_at)||
+    pendingOps.some(x=>x.seatId===seatId&&x.kind==='cashout');
   const hasBuyin=ledger.some(x=>x.seat_id===seatId&&x.kind==='buyin'&&!x.voided_at);
-  if(hasCashout){setError('This player has already cashed out');return}
-  if(kind==='cashout'&&!hasBuyin){setError('Record a buy-in before cash-out');return}
+  if(otherCashout){setError('This player already has a cash-out recorded or pending');return}
+  if(kind==='cashout'&&!hasBuyin){setError('Sync the initial buy-in before cash-out');return}
   busy.current=true;setLoading(true);setError('');
-  const id=crypto.randomUUID();
-  const signaturePath=user.id+'/'+game.id+'/'+id+'.png';
-  let uploaded=false;
   try{
-   const upload=await db.storage.from('holdings-signatures').upload(signaturePath,signatureBlob,{contentType:'image/png'});
-   if(upload.error)throw upload.error;
-   uploaded=true;
-   const {data,error:e}=await db.from('holdings_ledger').insert({id,owner_id:user.id,game_id:game.id,seat_id:seatId,kind,amount_cents:cents,signature_path:signaturePath,client_operation_id:id}).select('*').single();
-   if(e)throw e;
-   setLedger(l=>l.some(t=>t.id===data.id)?l:[...l,data as Ledger]);setSheet({kind:'none'});setAmount('');setSignatureBlob(null);
-   noticeNow(kind==='buyin'?'Signed buy-in recorded':'Signed cash-out recorded');
-  }catch(e){if(uploaded)await db.storage.from('holdings-signatures').remove([signaturePath]);fail(e)}
+   const op:QueuedSignedTransaction={
+    id:crypto.randomUUID(),ownerId:user.id,gameId:game.id,seatId,kind,
+    amountCents:cents,signature:signatureBlob,createdAt:new Date().toISOString()
+   };
+   // Persist first. Until the server confirms, balances never treat this as settled.
+   await savePending(op);
+   setPendingOps(prev=>[...prev,op]);
+   setSheet({kind:'none'});setAmount('');setSignatureBlob(null);
+   noticeNow(navigator.onLine?'Signed entry queued for sync':'Saved on this device — awaiting connection');
+  }catch(e){fail(e)}
   finally{busy.current=false;setLoading(false)}
+  if(navigator.onLine)void flushPending();
  }
  async function openLedger(seatId:string){
   if(!db||!game)return;
