@@ -385,27 +385,47 @@ function App(){
   finally{busy.current=false;setLoading(false)}
  }
  async function openLedger(seatId:string){
-  if(!db)return;
+  if(!db||!game)return;
   setSheet({kind:'ledger',seatId});setError('');
   const signed=ledger.filter(x=>x.seat_id===seatId&&x.signature_path);
-  const urls=await Promise.all(signed.map(async t=>{
-   const {data}=await db.storage.from('holdings-signatures').createSignedUrl(t.signature_path!,3600);
-   return {id:t.id,url:data?.signedUrl||''};
-  }));
+  const [urls,history]=await Promise.all([
+   Promise.all(signed.map(async t=>{
+    const {data}=await db.storage.from('holdings-signatures').createSignedUrl(t.signature_path!,3600);
+    return {id:t.id,url:data?.signedUrl||''};
+   })),
+   db.from('holdings_corrections').select('id,transaction_id,reason,created_at').eq('game_id',game.id)
+  ]);
   setSignatureUrls(prev=>({...prev,...Object.fromEntries(urls.map(x=>[x.id,x.url]))}));
+  if(history.error)setError(history.error.message);
+  else setCorrections((history.data||[]) as Correction[]);
  }
- async function voidTransaction(tx:Ledger){
-  if(!db||!game||busy.current||game.status==='closed')return;
-  if(!window.confirm('Void this '+(tx.kind==='buyin'?'buy-in':'cash-out')+'? The signed entry stays in the audit trail.'))return;
+ function startCorrection(tx:Ledger){
+  setVoidReason('');
+  setError('');
+  setSheet({kind:'void',txnId:tx.id,seatId:tx.seat_id});
+ }
+ async function confirmCorrection(){
+  if(!db||!game||busy.current||game.status!=='live'||!sheet.txnId)return;
+  if(voidReason.trim().length<5){setError('Enter a reason of at least five characters');return}
   busy.current=true;setLoading(true);setError('');
   try{
-   const {data,error:e}=await db.from('holdings_ledger').update({voided_at:new Date().toISOString()}).eq('id',tx.id).eq('game_id',game.id).is('voided_at',null).select('*').single();
+   const {data,error:e}=await db.rpc('holdings_void_signed_transaction',{
+    p_transaction_id:sheet.txnId,p_reason:voidReason.trim()
+   });
    if(e)throw e;
-   setLedger(prev=>prev.map(t=>t.id===tx.id?data as Ledger:t));noticeNow(tx.kind==='cashout'?'Cash-out voided; recount available':'Buy-in voided');
-  }catch(e){fail(e)}finally{busy.current=false;setLoading(false)}
+   if(!data?.transaction||!data?.correction)throw new Error('Missing correction confirmation');
+   const changed=data.transaction as Ledger;
+   setLedger(prev=>prev.map(t=>t.id===changed.id?changed:t));
+   setCorrections(prev=>[...prev,data.correction as Correction]);
+   setSheet({kind:'ledger',seatId:changed.seat_id});
+   setVoidReason('');
+   noticeNow('Signed entry voided with reason preserved');
+  }catch(e){fail(e)}
+  finally{busy.current=false;setLoading(false)}
  }
  async function closeGame(){
   if(!db||!game||busy.current)return;
+  if(pendingOps.length){setError('Sync or discard pending signed transactions before closing');return}
   if(!settlement.ready){setError('Cash out every player and reconcile the bank before closing');return}
   busy.current=true;setLoading(true);setError('');
   try{
@@ -521,7 +541,7 @@ function App(){
         {game&&<button className="ledger-link" onClick={()=>void openLedger(s.id)}>Signed ledger <ChevronRight size={13}/></button>}
        </div>
        {s.hasCashout?<div className="cashout-result"><strong className={s.cashout-s.total>=0?'amount-positive':'amount-negative'}>{s.cashout-s.total>=0?'+':'−'}{fmt(Math.abs(s.cashout-s.total),curr)}</strong>
-          {game&&!closed&&<button className="recount-action" onClick={()=>{const tx=ledger.find(x=>x.seat_id===s.id&&x.kind==='cashout'&&!x.voided_at);if(tx)void voidTransaction(tx)}}><RotateCcw size={13}/> Recount</button>}</div>
+          {game&&!closed&&<button className="recount-action" onClick={()=>{const tx=ledger.find(x=>x.seat_id===s.id&&x.kind==='cashout'&&!x.voided_at);if(tx)startCorrection(tx)}}><RotateCcw size={13}/> Recount</button>}</div>
         :game&&!closed?<button className="outline-btn" onClick={()=>openTransaction('cashout',s.id)}>Cash out</button>:<span className="mini-status quiet">In play</span>}
       </article>)}
      {!seatBalances.some(s=>s.total>0)&&<div className="empty-frame"><Wallet size={30}/><p>Cash-outs become available after the first buy-in.</p></div>}
@@ -594,7 +614,7 @@ function App(){
   {notice&&<div className="toast"><Check size={18}/>{notice}</div>}
   {loading&&<div className="busy-badge"><LoaderCircle className="spin" size={16}/> Saving…</div>}
   </div>
-  {sheet.kind!=='none'&&<div className="sheet-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget){setSheet({kind:'none'});setError('')}}}><div className="sheet" role="dialog" aria-modal="true"><div className="sheet-grab"/><div className="sheet-head"><h2>{sheet.kind==='game'?'New table':sheet.kind==='seat'?'Seat a player':sheet.kind==='player'?'Player photo':sheet.kind==='share'?'Invite players':sheet.kind==='ledger'?'Player ledger':sheet.kind==='export'?'Session summary':sheet.kind==='close'?'Close game':sheet.kind==='install'?'Install Holdings':sheet.kind==='remove'?'Remove completed game':sheet.kind==='buyin'?'Record buy-in':'Cash out'}</h2><button className="icon-control" onClick={()=>{setSheet({kind:'none'});setError('')}} aria-label="Close"><X size={20}/></button></div><div className="sheet-scroll">
+  {sheet.kind!=='none'&&<div className="sheet-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget){setSheet({kind:'none'});setError('')}}}><div className="sheet" role="dialog" aria-modal="true"><div className="sheet-grab"/><div className="sheet-head"><h2>{sheet.kind==='game'?'New table':sheet.kind==='seat'?'Seat a player':sheet.kind==='player'?'Player photo':sheet.kind==='share'?'Invite players':sheet.kind==='ledger'?'Player ledger':sheet.kind==='export'?'Session summary':sheet.kind==='close'?'Close game':sheet.kind==='install'?'Install Holdings':sheet.kind==='remove'?'Remove completed game':sheet.kind==='void'?'Correct signed entry':sheet.kind==='buyin'?'Record buy-in':'Cash out'}</h2><button className="icon-control" onClick={()=>{setSheet({kind:'none'});setError('')}} aria-label="Close"><X size={20}/></button></div><div className="sheet-scroll">
    {sheet.kind==='game'&&<form onSubmit={e=>{e.preventDefault();void createGame()}}><label>Table name</label><input value={title} onChange={e=>setTitle(e.target.value)} maxLength={100}/><div className="form-grid"><div><label>Stakes</label><input value={stakes} onChange={e=>setStakes(e.target.value)}/></div><div><label>Currency</label><input value={currency} onChange={e=>setCurrency(e.target.value)} maxLength={4}/></div></div><label>Standard buy-in</label><input type="number" min="0" step="0.01" value={buyin} onChange={e=>setBuyin(e.target.value)}/><button className="primary-btn" disabled={loading}>Create table <ArrowRight size={18}/></button></form>}
    {sheet.kind==='seat'&&<form id="seat-first-buyin-form" className="seat-first-form" onSubmit={e=>{e.preventDefault();void seatWithFirstBuyin()}}>
       <p className="subtle-copy">Seat a player and record their first signed buy-in together.</p>
@@ -641,6 +661,7 @@ function App(){
       {ledger.filter(t=>t.seat_id===sheet.seatId).map(t=><div className={'audit-item '+(t.voided_at?'voided':'')} key={t.id}>
         <div className="audit-title"><strong>{t.kind==='buyin'?'Buy-in':'Cash-out'} · {fmt(t.amount_cents,curr)}</strong><span>{new Date(t.created_at).toLocaleString()}</span></div>
         {t.voided_at&&<span className="void-label">VOIDED · {new Date(t.voided_at).toLocaleString()}</span>}
+        {corrections.filter(c=>c.transaction_id===t.id).map(a=><p key={a.id} className="correction-reason">Correction reason: {a.reason}</p>)}
         {t.signature_path?
           signatureUrls[t.id]?<img className="signature-image" src={signatureUrls[t.id]} alt="Player signature"/>:<p className="subtle-copy">Loading private signature…</p>
           :<p className="subtle-copy">No signature on this earlier record.</p>}
@@ -661,7 +682,16 @@ function App(){
       <button className="primary-btn" disabled={!settlement.ready||loading} onClick={()=>void closeGame()}><Check size={18}/> Confirm close game</button>
       <button className="outline-wide" onClick={()=>setSheet({kind:'none'})}>Keep playing</button>
     </>}
-    {sheet.kind==='remove'&&<>
+    {sheet.kind==='void'&&<>
+       <p className="subtle-copy">Void this signed entry. The original value and signature remain in the ledger audit trail.</p>
+       <label>Reason for correction</label>
+       <textarea className="correction-input" value={voidReason} onChange={e=>setVoidReason(e.target.value)}
+         placeholder="What was recorded incorrectly?" maxLength={300} rows={3}/>
+       <button type="button" disabled={loading||voidReason.trim().length<5}
+        className="destructive-btn" onClick={()=>void confirmCorrection()}><Trash2 size={17}/> Confirm correction</button>
+       <button type="button" className="outline-wide" onClick={()=>setSheet({kind:'ledger',seatId:sheet.seatId})}>Cancel</button>
+     </>}
+     {sheet.kind==='remove'&&<>
       <p className="subtle-copy">Remove <strong>{games.find(g=>g.id===sheet.gameId)?.title||'this game'}</strong> from your History?</p>
       <div className="info-note"><ShieldCheck size={18}/> The game disappears from History, Stats and guest links. Its signed transactions remain intact and can be restored from Recently removed.</div>
       <button className="destructive-btn" disabled={loading} onClick={()=>{if(sheet.gameId)void removeClosedGame(sheet.gameId)}}><Trash2 size={18}/> Remove game</button>
