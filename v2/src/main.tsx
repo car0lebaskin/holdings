@@ -5,6 +5,11 @@ import {Greeting} from './components/Greeting';
 import {ClosedGameRow} from './components/ClosedGameRow';
 import {EdgeGlow} from './components/EdgeGlow';
 import {GuestArrival} from './components/GuestArrival';
+import {BackupRecovery} from './components/BackupRecovery';
+import {GuestLinkManager} from './components/GuestLinkManager';
+import {ProfileEditor} from './components/ProfileEditor';
+import {makeSettlementImage} from './lib/settlementImage';
+import {savePending,listPending,deletePending,updatePendingError,type QueuedSignedTransaction} from './lib/offlineQueue';
 import {calculateSettlement, exportSummary} from './lib/settlement.mjs';
 import { createRoot } from 'react-dom/client';
 import { createClient, type User } from '@supabase/supabase-js';
@@ -19,8 +24,9 @@ type Game={id:string;owner_id:string;title:string;stakes:string;currency:string;
 type Profile={id:string;owner_id:string;display_name:string;avatar_path:string|null};
 type Seat={id:string;game_id:string;profile_id:string;display_name_snapshot:string;created_at:string};
 type Ledger={id:string;game_id:string;seat_id:string;owner_id:string;kind:'buyin'|'cashout';amount_cents:number;voided_at:string|null;signature_path:string|null;created_at:string};
-type GuestSnapshot={game:{id:string;title:string;stakes:string;currency:string;status:string;started_at:string};players:{seat_id:string;name:string;avatar_path:string|null}[];transactions:{id:string;seat_id:string;kind:'buyin'|'cashout';amount_cents:number;voided:boolean;created_at:string}[]};
-type SheetState={kind:'game'|'seat'|'player'|'buyin'|'cashout'|'share'|'ledger'|'export'|'close'|'install'|'remove'|'none';seatId?:string;gameId?:string};
+type GuestSnapshot={scope?:'table'|'player';game:{id:string;title:string;stakes:string;currency:string;status:string;started_at:string};players:{seat_id:string;name:string;avatar_path:string|null}[];transactions:{id:string;seat_id:string;kind:'buyin'|'cashout';amount_cents:number;voided:boolean;created_at:string}[]};
+type SheetState={kind:'game'|'seat'|'player'|'buyin'|'cashout'|'share'|'ledger'|'export'|'close'|'install'|'remove'|'void'|'none';seatId?:string;gameId?:string;txnId?:string};
+type Correction={id:string;transaction_id:string;reason:string;created_at:string};
 type InstallEvent=Event & {prompt:()=>Promise<void>;userChoice:Promise<{outcome:string}>};
 type SettledPlayer={id:string;name:string;buyin:number;cashout:number|null;net:number|null;cashedOut:boolean;count:number};
 
@@ -76,6 +82,12 @@ function App(){
  const [amount,setAmount]=useState('');
  const [signatureBlob,setSignatureBlob]=useState<Blob|null>(null);
  const [signatureUrls,setSignatureUrls]=useState<Record<string,string>>({});
+ const [corrections,setCorrections]=useState<Correction[]>([]);
+ const [voidReason,setVoidReason]=useState('');
+ const [pendingOps,setPendingOps]=useState<QueuedSignedTransaction[]>([]);
+ const [queueBusy,setQueueBusy]=useState(false);
+ const [backupOpen,setBackupOpen]=useState(false);
+ const [profilesOpen,setProfilesOpen]=useState(false);
  const [dragX,setDragX]=useState(0);
  const [swipeDir,setSwipeDir]=useState<'left'|'right'>('left');
  const [installEvent,setInstallEvent]=useState<InstallEvent|null>(null);
@@ -86,6 +98,7 @@ function App(){
  const homeTouch=useRef<{x:number;y:number}|null>(null);
  const homeSwipeConsumed=useRef(false);
  const busy=useRef(false);
+ const syncingRef=useRef(false);
  const seatOpRef=useRef<string|null>(null);
  const isGuest=!!guest;
  const active=!!game||isGuest;
@@ -284,6 +297,7 @@ function App(){
  async function refreshGuest(token:string){
   if(!db)return;const {data,error:e}=await db.rpc('holdings_guest_snapshot',{p_invite_token:token});
   if(e)throw e;if(!data){setGuest(null);throw new Error('Invite not found or no longer valid')}setGuest(data as GuestSnapshot);
+   if((data as GuestSnapshot).scope==='player'&&(data as GuestSnapshot).players.length===1){setGuestSelectedSeat((data as GuestSnapshot).players[0].seat_id);setGuestShowTable(false)}
  }
  async function openGuest(token:string){
   if(!db)return;setDemoMode(false);setError('');setLoading(true);setGame(null);setGuest(null);setTab('table');setGuestSelectedSeat('');setGuestShowTable(false);
@@ -472,9 +486,9 @@ function App(){
   <header className="header"><div className="brand"><div className="brand-symbol">♠</div><span>Holdings</span></div><span className="header-meta">{active?'TABLE LEDGER':'PRIVATE POKER LEDGER'}</span></header>
   {!db?<section className="empty-frame"><ShieldCheck size={32}/><h2>Preview configuration required</h2><p>Add Supabase project URL and publishable key in Vercel project environment variables.</p></section>:
   initializing?<div className="loading-line"><LoaderCircle size={20} className="spin"/> Starting Holdings…</div>:
-  active?(isGuest&&!guestShowTable&&guest?<GuestArrival snapshot={guest} selectedSeat={guestSelectedSeat}
+  active?(isGuest&&(guest?.scope==='player'||!guestShowTable)&&guest?<GuestArrival snapshot={guest} selectedSeat={guestSelectedSeat}
     onSelect={setGuestSelectedSeat} onViewTable={()=>setGuestShowTable(true)}
-    resolveAvatar={avatarUrl} demo={demoMode}/>:<>
+    resolveAvatar={avatarUrl} demo={demoMode} scoped={guest.scope==='player'}/>:<>
    <div className="topline"><button className="text-link" onClick={isGuest?()=>setGuestShowTable(false):goHome}><ArrowLeft size={18}/> {isGuest?'My buy-ins':'All games'}</button><div className="right-actions"><span className={'live-pill '+(closed?'muted':'')}><i/>{closed?'Closed':'Live'}</span>{game&&<button className="icon-control" title="Share table" onClick={()=>setSheet({kind:'share'})}><Share2 size={19}/></button>}</div></div>
    <div className="page-title"><div className="eyebrow">{isGuest?'YOU ARE VIEWING':'CURRENT GAME'}</div><div className="sync-indicator" aria-live="polite"><span className={syncMode==='live'?'sync-dot sync-connected':'sync-dot'}/>{demoMode?'Demo data':syncMode==='live'?'Live sync':'Auto-refresh'}</div><h1>{titleText}</h1><p>{game?.stakes||guest?.game.stakes||'Cash game'} · {curr}{isGuest?' · Read only':''}</p></div>
    <section className="hero"><div className="eyebrow blue-label">TOTAL BUY-INS</div><div className="hero-amount"><span>{curr}</span>{(sums.ins/100).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2})}</div><div className="hero-grid"><div><small>Chips in play</small><strong>{fmt(sums.onTable,curr)}</strong></div><div><small>Paid out</small><strong>{fmt(sums.outs,curr)}</strong></div><div><small>Players</small><strong>{activeSeats.length}</strong></div></div></section>
