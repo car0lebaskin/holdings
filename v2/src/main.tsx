@@ -48,6 +48,7 @@ function App(){
  const [statSeats,setStatSeats]=useState<Seat[]>([]);
  const [statLedger,setStatLedger]=useState<Ledger[]>([]);
  const [statsLoading,setStatsLoading]=useState(false);
+ const [syncMode,setSyncMode]=useState<'live'|'fallback'|'offline'>('fallback');
  const [game,setGame]=useState<Game|null>(null);
  const [seats,setSeats]=useState<Seat[]>([]);
  const [ledger,setLedger]=useState<Ledger[]>([]);
@@ -107,7 +108,66 @@ function App(){
  useEffect(()=>{const match=location.hash.match(/^#join=([a-f0-9]{36})$/);if(match)setGuestToken(match[1]);},[]);
  useEffect(()=>{if(user){void refreshHome()}},[user?.id]);
  useEffect(()=>{if(guestToken){void openGuest(guestToken)}},[guestToken]);
- useEffect(()=>{if(!guestToken)return;const interval=setInterval(()=>{if(!document.hidden)void refreshGuest(guestToken)},10000);return()=>clearInterval(interval)},[guestToken]);
+ useEffect(()=>{
+  if(!db||!guestToken||demoMode)return;
+  let active=true;
+  const token=guestToken;
+  const refresh=()=>{if(!document.hidden&&active)void refreshGuest(token).catch(e=>{if(active){setError(errMsg(e));setSyncMode('fallback')}})};
+  const channel=db.channel('holdings:game:'+token,{config:{private:false}})
+   .on('broadcast',{event:'refresh'},refresh)
+   .subscribe(status=>{
+    if(!active)return;
+    if(status==='SUBSCRIBED'){setSyncMode('live');refresh()}
+    else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED')setSyncMode('fallback');
+   });
+  const fallback=window.setInterval(refresh,45000);
+  const onVisibility=()=>{if(!document.hidden)refresh()};
+  document.addEventListener('visibilitychange',onVisibility);
+  window.addEventListener('focus',refresh);
+  return ()=>{active=false;window.clearInterval(fallback);document.removeEventListener('visibilitychange',onVisibility);window.removeEventListener('focus',refresh);void db.removeChannel(channel)};
+ },[guestToken,demoMode]);
+
+ useEffect(()=>{
+  if(!db||!user?.id||!game?.id||demoMode)return;
+  let active=true;
+  const gameId=game.id;
+  let pending:number|undefined;
+  const refresh=async()=>{
+   try{
+    const [g,s,l]=await Promise.all([
+     db.from('holdings_games').select('*').eq('id',gameId).single(),
+     db.from('holdings_seats').select('*').eq('game_id',gameId).order('created_at'),
+     db.from('holdings_ledger').select('*').eq('game_id',gameId).order('created_at')
+    ]);
+    if(g.error)throw g.error;if(s.error)throw s.error;if(l.error)throw l.error;
+    if(!active)return;
+    setGame(prev=>prev?.id===gameId?g.data as Game:prev);
+    setSeats(s.data as Seat[]);setLedger(l.data as Ledger[]);
+   }catch(e){if(active)setSyncMode('fallback')}
+  };
+  const refreshSoon=()=>{
+   if(pending)clearTimeout(pending);
+   pending=window.setTimeout(()=>{void refresh()},120);
+  };
+  const channel=db.channel('holdings:host:'+gameId)
+   .on('postgres_changes',{event:'*',schema:'public',table:'holdings_seats',filter:'game_id=eq.'+gameId},refreshSoon)
+   .on('postgres_changes',{event:'*',schema:'public',table:'holdings_ledger',filter:'game_id=eq.'+gameId},refreshSoon)
+   .on('postgres_changes',{event:'UPDATE',schema:'public',table:'holdings_games',filter:'id=eq.'+gameId},refreshSoon)
+   .subscribe(status=>{
+    if(!active)return;
+    if(status==='SUBSCRIBED')setSyncMode('live');
+    else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED')setSyncMode('fallback');
+   });
+  const fallback=window.setInterval(()=>{if(!document.hidden)void refresh()},60000);
+  const onVisibility=()=>{if(!document.hidden)void refresh()};
+  document.addEventListener('visibilitychange',onVisibility);
+  window.addEventListener('focus',onVisibility);
+  return ()=>{
+   active=false;if(pending)clearTimeout(pending);window.clearInterval(fallback);
+   document.removeEventListener('visibilitychange',onVisibility);window.removeEventListener('focus',onVisibility);
+   void db.removeChannel(channel);
+  };
+ },[user?.id,game?.id,demoMode]);
 
  useEffect(()=>{
    const check=()=>setStandalone(window.matchMedia('(display-mode: standalone)').matches||(navigator as Navigator & {standalone?:boolean}).standalone===true);
@@ -296,7 +356,7 @@ function App(){
    uploaded=true;
    const {data,error:e}=await db.from('holdings_ledger').insert({id,owner_id:user.id,game_id:game.id,seat_id:seatId,kind,amount_cents:cents,signature_path:signaturePath,client_operation_id:id}).select('*').single();
    if(e)throw e;
-   setLedger(l=>[...l,data as Ledger]);setSheet({kind:'none'});setAmount('');setSignatureBlob(null);
+   setLedger(l=>l.some(t=>t.id===data.id)?l:[...l,data as Ledger]);setSheet({kind:'none'});setAmount('');setSignatureBlob(null);
    noticeNow(kind==='buyin'?'Signed buy-in recorded':'Signed cash-out recorded');
   }catch(e){if(uploaded)await db.storage.from('holdings-signatures').remove([signaturePath]);fail(e)}
   finally{busy.current=false;setLoading(false)}
@@ -405,7 +465,7 @@ function App(){
   initializing?<div className="loading-line"><LoaderCircle size={20} className="spin"/> Starting Holdings…</div>:
   active?<>
    <div className="topline"><button className="text-link" onClick={goHome}><ArrowLeft size={18}/> All games</button><div className="right-actions"><span className={'live-pill '+(closed?'muted':'')}><i/>{closed?'Closed':'Live'}</span>{game&&<button className="icon-control" title="Share table" onClick={()=>setSheet({kind:'share'})}><Share2 size={19}/></button>}</div></div>
-   <div className="page-title"><div className="eyebrow">{isGuest?'YOU ARE VIEWING':'CURRENT GAME'}</div><h1>{titleText}</h1><p>{game?.stakes||guest?.game.stakes||'Cash game'} · {curr}{isGuest?' · Read only':''}</p></div>
+   <div className="page-title"><div className="eyebrow">{isGuest?'YOU ARE VIEWING':'CURRENT GAME'}</div><div className="sync-indicator" aria-live="polite"><span className={syncMode==='live'?'sync-dot sync-connected':'sync-dot'}/>{demoMode?'Demo data':syncMode==='live'?'Live sync':'Auto-refresh'}</div><h1>{titleText}</h1><p>{game?.stakes||guest?.game.stakes||'Cash game'} · {curr}{isGuest?' · Read only':''}</p></div>
    <section className="hero"><div className="eyebrow blue-label">TOTAL BUY-INS</div><div className="hero-amount"><span>{curr}</span>{(sums.ins/100).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2})}</div><div className="hero-grid"><div><small>Chips in play</small><strong>{fmt(sums.onTable,curr)}</strong></div><div><small>Paid out</small><strong>{fmt(sums.outs,curr)}</strong></div><div><small>Players</small><strong>{activeSeats.length}</strong></div></div></section>
    <div className="segmented" role="tablist" aria-label="Table sections">{(['table','cashout','settle'] as const).map(t=><button type="button" role="tab" aria-selected={tab===t} className={tab===t?'selected':''} onClick={()=>changeTab(t)} key={t}>{t==='table'?'Table':t==='cashout'?'Cash out':'Settle'}</button>)}</div>
    <main onTouchStart={onSwipeStart} onTouchMove={onSwipeMove} onTouchEnd={onSwipeEnd}
