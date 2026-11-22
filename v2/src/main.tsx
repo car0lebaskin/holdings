@@ -511,8 +511,35 @@ function App(){
   </div>
   {sheet.kind!=='none'&&<div className="sheet-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget){setSheet({kind:'none'});setError('')}}}><div className="sheet" role="dialog" aria-modal="true"><div className="sheet-grab"/><div className="sheet-head"><h2>{sheet.kind==='game'?'New table':sheet.kind==='seat'?'Seat a player':sheet.kind==='player'?'Player photo':sheet.kind==='share'?'Invite players':sheet.kind==='ledger'?'Player ledger':sheet.kind==='export'?'Session summary':sheet.kind==='close'?'Close game':sheet.kind==='install'?'Install Holdings':sheet.kind==='remove'?'Remove completed game':sheet.kind==='buyin'?'Record buy-in':'Cash out'}</h2><button className="icon-control" onClick={()=>{setSheet({kind:'none'});setError('')}} aria-label="Close"><X size={20}/></button></div><div className="sheet-scroll">
    {sheet.kind==='game'&&<form onSubmit={e=>{e.preventDefault();void createGame()}}><label>Table name</label><input value={title} onChange={e=>setTitle(e.target.value)} maxLength={100}/><div className="form-grid"><div><label>Stakes</label><input value={stakes} onChange={e=>setStakes(e.target.value)}/></div><div><label>Currency</label><input value={currency} onChange={e=>setCurrency(e.target.value)} maxLength={4}/></div></div><label>Standard buy-in</label><input type="number" min="0" step="0.01" value={buyin} onChange={e=>setBuyin(e.target.value)}/><button className="primary-btn" disabled={loading}>Create table <ArrowRight size={18}/></button></form>}
-   {sheet.kind==='seat'&&<><label>Choose existing player</label><div className="select-shell"><select aria-label="Choose existing player" value={selectedProfile} onChange={e=>setSelectedProfile(e.target.value)}><option value="">Select player</option>{profiles.filter(p=>!seats.some(s=>s.profile_id===p.id)).map(p=><option value={p.id} key={p.id}>{p.display_name}</option>)}</select><ChevronDown size={20} aria-hidden="true" className="select-chevron"/></div><button className="primary-btn" disabled={!selectedProfile||loading} onClick={()=>void seatPlayer()}>Seat selected player</button><div className="sheet-divider">or create a new profile</div><label>New player name</label><input value={playerName} maxLength={100} onChange={e=>setPlayerName(e.target.value)} placeholder="Player name"/><button className="outline-wide" disabled={!playerName.trim()||loading} onClick={()=>void makeProfile()}><Plus size={17}/> Save player profile</button></>}
-   {sheet.kind==='player'&&<><p className="subtle-copy">Change {imageProfile?.display_name}'s profile photo. Pictures follow the player into future games.</p><input ref={photoRef} type="file" accept="image/*" capture={undefined} className="hidden-input" onChange={e=>{const f=e.target.files?.[0];if(f)void uploadAvatar(f)}}/><button className="menu-row" onClick={()=>photoRef.current?.click()}><ImagePlus size={22}/> Choose photo <ChevronRight size={18}/></button><button className="menu-row" onClick={()=>{if(photoRef.current){photoRef.current.setAttribute('capture','environment');photoRef.current.click();photoRef.current.removeAttribute('capture')}}}><Camera size={22}/> Take photo <ChevronRight size={18}/></button></>}
+   {sheet.kind==='seat'&&<form id="seat-first-buyin-form" className="seat-first-form" onSubmit={e=>{e.preventDefault();void seatWithFirstBuyin()}}>
+      <p className="subtle-copy">Seat a player and record their first signed buy-in together.</p>
+      <label>Existing player</label>
+      <div className="select-shell">
+       <select aria-label="Choose existing player" value={selectedProfile} onChange={e=>{seatOpRef.current=null;setSelectedProfile(e.target.value);if(e.target.value)setPlayerName('')}}>
+        <option value="">New player or select existing</option>
+        {profiles.filter(p=>!seats.some(s=>s.profile_id===p.id)).map(p=><option value={p.id} key={p.id}>{p.display_name}</option>)}
+       </select>
+       <ChevronDown size={20} aria-hidden="true" className="select-chevron"/>
+      </div>
+      {!selectedProfile&&<>
+       <label>New player name</label>
+       <input value={playerName} maxLength={100} onChange={e=>{seatOpRef.current=null;setPlayerName(e.target.value)}} placeholder="Full name or nickname" autoComplete="off"/>
+       <p className="seat-profile-tip">New player profiles are saved and reusable in future games.</p>
+      </>}
+      <label>First buy-in ({curr})</label>
+      <input className="amount-input" type="number" inputMode="decimal" step="0.01" min="0.01"
+       value={amount} onChange={e=>{seatOpRef.current=null;setAmount(e.target.value)}} placeholder="0.00" required/>
+      <div className="quick-amounts">{[1,2,3].map(n=>
+       <button type="button" key={n} onClick={()=>{seatOpRef.current=null;setAmount(String(n*(game?.default_buyin_cents||10000)/100))}}>
+        {fmt(n*(game?.default_buyin_cents||10000),curr)}
+       </button>)}
+      </div>
+      <label>Player signature</label>
+      <p className="subtle-copy">The player signs to confirm the first buy-in amount.</p>
+      <SignaturePad key={'seat-'+(game?.id||'')} resetId={'seat-'+(game?.id||'')}
+       onChange={blob=>{seatOpRef.current=null;setSignatureBlob(blob)}}/>
+    </form>}
+    {sheet.kind==='player'&&<><p className="subtle-copy">Change {imageProfile?.display_name}'s profile photo. Pictures follow the player into future games.</p><input ref={photoRef} type="file" accept="image/*" capture={undefined} className="hidden-input" onChange={e=>{const f=e.target.files?.[0];if(f)void uploadAvatar(f)}}/><button className="menu-row" onClick={()=>photoRef.current?.click()}><ImagePlus size={22}/> Choose photo <ChevronRight size={18}/></button><button className="menu-row" onClick={()=>{if(photoRef.current){photoRef.current.setAttribute('capture','environment');photoRef.current.click();photoRef.current.removeAttribute('capture')}}}><Camera size={22}/> Take photo <ChevronRight size={18}/></button></>}
    {sheet.kind==='share'&&<><p className="subtle-copy">Send a read-only invitation. Friends can view the table without an account or access to your backend settings.</p><div className="invite-code">{game?short(game.invite_token):''}</div><button className="primary-btn" onClick={()=>void share()}><Share2 size={18}/> Share invite</button><button className="outline-wide" onClick={async()=>{if(!game)return;const u=new URL(location.origin+location.pathname);u.hash='join='+game.invite_token;await navigator.clipboard.writeText(u.toString());noticeNow('Link copied')}}><Copy size={18}/> Copy link</button></>}
    {(sheet.kind==='buyin'||sheet.kind==='cashout')&&<form id="signed-ledger-form" onSubmit={e=>{e.preventDefault();void addTransaction(sheet.kind as 'buyin'|'cashout',sheet.seatId||'')}}>
       <p className="subtle-copy">{seats.find(s=>s.id===sheet.seatId)?.display_name_snapshot||''}</p>
@@ -562,7 +589,13 @@ function App(){
     </>}
 
   </div>
-  {(sheet.kind==='buyin'||sheet.kind==='cashout')&&<div className="sheet-action-footer">
+  {sheet.kind==='seat'&&<div className="sheet-action-footer">
+    <button type="submit" form="seat-first-buyin-form" className="primary-btn"
+      disabled={loading||(!selectedProfile&&!playerName.trim())||!signatureBlob||toCents(amount)===null||(toCents(amount)||0)<=0}>
+      {loading?<><LoaderCircle className="spin" size={17}/> Saving…</>:<><Check size={19}/> Seat &amp; record buy-in</>}
+    </button>
+   </div>}
+   {(sheet.kind==='buyin'||sheet.kind==='cashout')&&<div className="sheet-action-footer">
     <button type="submit" form="signed-ledger-form"
      disabled={loading||!signatureBlob||toCents(amount)===null||(sheet.kind==='buyin'&&toCents(amount)===0)}
      className="primary-btn">
