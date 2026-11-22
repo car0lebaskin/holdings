@@ -1,0 +1,30 @@
+name: Holdings v2 checks
+on:
+  push:
+    branches: [holdings-v2]
+    paths:
+      - 'v2/**'
+      - '.github/workflows/holdings-v2-checks.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: v2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Unit tests and strict production build
+        run: npm run build
