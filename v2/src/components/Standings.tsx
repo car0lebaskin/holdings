@@ -1,5 +1,6 @@
 import {TrendingUp} from 'lucide-react';
 import {calculateSettlement} from '../lib/settlement.mjs';
+import {PlayerBreakdown} from './PlayerBreakdown';
 
 type Game={id:string;title?:string;status:string;started_at:string;currency:string};
 type Seat={id:string;game_id:string;profile_id:string;display_name_snapshot:string};
@@ -45,14 +46,14 @@ export function Standings({games,seats,transactions,loading=false}:{games:Game[]
  if(loading)return <div className="empty-frame"><TrendingUp size={29}/><p>Loading player performance…</p></div>;
  if(!games.length)return <div className="empty-frame"><TrendingUp size={29}/><h3>No games recorded</h3><p>Graphs and lifetime P&L will appear as your tables accumulate results.</p></div>;
 
- const byCurrency=new Map<string,{game:Game;items:{key:string;name:string;net:number}[]}[]>();
+ const byCurrency=new Map<string,{game:Game;items:{key:string;name:string;net:number;buyin:number}[]}[]>();
  for(const game of closed){
   const local=seats.filter(s=>s.game_id===game.id);
   const tx=transactions.filter(t=>t.game_id===game.id);
   const result=calculateSettlement(local,tx);
-  const items=result.players.filter((p:{buyin:number;net:number|null})=>p.buyin>0&&p.net!==null).map((p:{id:string;name:string;net:number})=>{
+  const items=result.players.filter((p:{buyin:number;net:number|null})=>p.buyin>0&&p.net!==null).map((p:{id:string;name:string;net:number;buyin:number})=>{
    const seat=local.find(s=>s.id===p.id);
-   return {key:seat?.profile_id||p.id,name:p.name,net:p.net};
+   return {key:seat?.profile_id||p.id,name:p.name,net:p.net,buyin:p.buyin};
   });
   const current=byCurrency.get(game.currency)||[];
   current.push({game,items});byCurrency.set(game.currency,current);
@@ -90,6 +91,7 @@ export function Standings({games,seats,transactions,loading=false}:{games:Game[]
       {p.net===0?'Even':(p.net>0?'+':'−')+money(p.net,currency)}
      </strong>
     </div>)}</div>
+    {sorted.length>0&&<PlayerBreakdown currency={currency} nights={nights} players={sorted.map(p=>({key:p.key,name:p.name}))}/>}
    </section>;
   })}
 
