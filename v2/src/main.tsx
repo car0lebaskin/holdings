@@ -42,6 +42,7 @@ function App(){
  const [ledger,setLedger]=useState<Ledger[]>([]);
  const [guest,setGuest]=useState<GuestSnapshot|null>(null);
  const [guestToken,setGuestToken]=useState('');
+ const [demoMode,setDemoMode]=useState(false);
  const [section,setSection]=useState<'home'|'stats'|'history'>('home');
  const [tab,setTab]=useState<'table'|'cashout'|'settle'>('table');
  const [sheet,setSheet]=useState<SheetState>({kind:'none'});
@@ -79,6 +80,14 @@ function App(){
  useEffect(()=>{if(guestToken){void openGuest(guestToken)}},[guestToken]);
  useEffect(()=>{if(!guestToken)return;const interval=setInterval(()=>{if(!document.hidden)void refreshGuest(guestToken)},10000);return()=>clearInterval(interval)},[guestToken]);
 
+ function startDemo(){
+  const now=new Date().toISOString();
+  setDemoMode(true);setGuestToken('');setGame(null);setTab('table');
+  setGuest({game:{id:'preview',title:'Friday Cash Game',stakes:'1 / 2',currency:'RM',status:'live',started_at:now},
+    players:[{seat_id:'p1',name:'Alex Chen',avatar_path:null},{seat_id:'p2',name:'Jamie Lee',avatar_path:null},{seat_id:'p3',name:'Sam Tan',avatar_path:null},{seat_id:'p4',name:'Taylor Wong',avatar_path:null}],
+    transactions:[{id:'t1',seat_id:'p1',kind:'buyin',amount_cents:50000,voided:false,created_at:now},{id:'t2',seat_id:'p1',kind:'buyin',amount_cents:50000,voided:false,created_at:now},{id:'t3',seat_id:'p2',kind:'buyin',amount_cents:50000,voided:false,created_at:now},{id:'t4',seat_id:'p3',kind:'buyin',amount_cents:100000,voided:false,created_at:now},{id:'t5',seat_id:'p3',kind:'cashout',amount_cents:130000,voided:false,created_at:now},{id:'t6',seat_id:'p4',kind:'buyin',amount_cents:50000,voided:false,created_at:now}]});
+  setError('');
+ }
  async function refreshHome(){
   if(!db||!user)return;
   try{
@@ -101,7 +110,7 @@ function App(){
   if(e)throw e;if(!data)throw new Error('Invite not found or no longer valid');setGuest(data as GuestSnapshot);
  }
  async function openGuest(token:string){
-  if(!db)return;setError('');setLoading(true);setGame(null);setGuest(null);setTab('table');
+  if(!db)return;setDemoMode(false);setError('');setLoading(true);setGame(null);setGuest(null);setTab('table');
   try{await refreshGuest(token)}catch(e){fail(e)}finally{setLoading(false)}
  }
  async function createGame(){
@@ -165,7 +174,7 @@ function App(){
   else {await navigator.clipboard.writeText(msg+'\n'+url.toString());noticeNow('Invite link copied')}}
   catch(e){if((e as Error).name!=='AbortError')fail(e)}
  }
- function goHome(){setGame(null);setGuest(null);setGuestToken('');history.replaceState(null,'',location.pathname);setSheet({kind:'none'});setTab('table');if(user)void refreshHome()}
+ function goHome(){setDemoMode(false);setGame(null);setGuest(null);setGuestToken('');history.replaceState(null,'',location.pathname);setSheet({kind:'none'});setTab('table');if(user)void refreshHome()}
  function onSwipeStart(e:React.TouchEvent){if((e.target as HTMLElement).closest('button,input,textarea,select,canvas,.sheet'))return;touchX.current=e.touches[0].clientX}
  function onSwipeEnd(e:React.TouchEvent){if(touchX.current===null)return;const delta=e.changedTouches[0].clientX-touchX.current;touchX.current=null;if(Math.abs(delta)<65)return;const tabs:['table','cashout','settle']=['table','cashout','settle'];const i=tabs.indexOf(tab);setTab(tabs[Math.min(2,Math.max(0,i+(delta<0?1:-1)))])}
  const seatBalances=activeSeats.map(s=>{const tx=sums.live.filter(t=>t.seat_id===s.id);const total=tx.filter(t=>t.kind==='buyin').reduce((n,t)=>n+Number(t.amount_cents),0);const cashout=tx.filter(t=>t.kind==='cashout').reduce((n,t)=>n+Number(t.amount_cents),0);return {...s,total,cashout,hasCashout:tx.some(t=>t.kind==='cashout'),count:tx.filter(t=>t.kind==='buyin').length}});
@@ -188,7 +197,7 @@ function App(){
      {!activeSeats.length&&<div className="empty-frame"><Users size={32}/><h3>No players seated</h3><p>Add the first player to start tracking this table.</p></div>}
      {seatBalances.map(s=><article className="player-row" key={s.id}><Avatar name={s.display_name_snapshot} path={s.avatar_path} onClick={game&&!closed?()=>{const p=avatarProfile(s);if(p){setImageProfile(p);setSheet({kind:'player',seatId:s.id})}}:undefined}/><div className="player-main"><strong>{s.display_name_snapshot}</strong><span>{s.count?fmt(s.total,curr)+' · '+s.count+' buy-in'+(s.count>1?'s':''): 'No buy-ins yet'}</span></div><div className="player-side">{s.hasCashout?<span className="mini-status paid">Cashed out</span>:s.count?<span className="mini-status">Playing</span>:<span className="mini-status quiet">Seated</span>}{game&&!closed&&!s.hasCashout&&<button className="row-arrow" aria-label={'Record buy-in for '+s.display_name_snapshot} onClick={()=>{setAmount(String((game.default_buyin_cents||10000)/100));setSheet({kind:'buyin',seatId:s.id})}}><ChevronRight size={18}/></button>}</div></article>)}
      {game&&!closed&&<button className="primary-btn add-transaction" onClick={()=>setSheet({kind:'seat'})}><Plus size={19}/> Seat player</button>}
-     {isGuest&&<div className="info-note"><ShieldCheck size={17}/> Guest access is read only. The host controls all changes.</div>}
+     {isGuest&&<div className="info-note"><ShieldCheck size={17}/>{demoMode?'Demo preview: sample data only. No changes are saved.':'Guest access is read only. The host controls all changes.'}</div>}
     </>:tab==='cashout'?<>
      <div className="section-head"><h2>Cash out</h2></div>
      {seatBalances.filter(s=>s.total>0).map(s=><article className="player-row" key={s.id}><Avatar name={s.display_name_snapshot} path={s.avatar_path}/><div className="player-main"><strong>{s.display_name_snapshot}</strong><span>In for {fmt(s.total,curr)}</span></div>{s.hasCashout?<span className="amount-positive">{fmt(s.cashout,curr)}</span>:game&&!closed?<button className="outline-btn" onClick={()=>{setAmount('');setSheet({kind:'cashout',seatId:s.id})}}>Cash out</button>:<span className="mini-status quiet">In play</span>}</article>)}
@@ -198,7 +207,7 @@ function App(){
      <div className="info-note"><ShieldCheck size={17}/> Final settlement is available after all players cash out and bank totals reconcile.</div>
     </>}
    </main>
-  </>:!user?<div className="auth-view"><div className="intro-label">YOUR PRIVATE LEDGER</div><h1>Every chip.<br/>Accounted for.</h1><p>A cleaner way to run your home game. Record buy-ins, track results and let friends watch live.</p><form onSubmit={async e=>{e.preventDefault();if(!db)return;setLoading(true);setError('');const {error:e2}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});setLoading(false);if(e2)setError(e2.message);else setEmailSent(true)}}><label>Email address</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="email" placeholder="you@example.com"/><button className="primary-btn" disabled={loading}>{loading?'Sending…':emailSent?'Send another login link':'Sign in with email'} <ArrowRight size={17}/></button>{emailSent&&<div className="info-note"><Check size={17}/> Check your email for a secure sign-in link.</div>}</form><p className="muted-detail">No guest account is required to open a shared table link.</p></div>:
+  </>:!user?<div className="auth-view"><div className="intro-label">YOUR PRIVATE LEDGER</div><h1>Every chip.<br/>Accounted for.</h1><p>A cleaner way to run your home game. Record buy-ins, track results and let friends watch live.</p><form onSubmit={async e=>{e.preventDefault();if(!db)return;setLoading(true);setError('');const {error:e2}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});setLoading(false);if(e2)setError(e2.message);else setEmailSent(true)}}><label>Email address</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="email" placeholder="you@example.com"/><button className="primary-btn" disabled={loading}>{loading?'Sending…':emailSent?'Send another login link':'Sign in with email'} <ArrowRight size={17}/></button>{emailSent&&<div className="info-note"><Check size={17}/> Check your email for a secure sign-in link.</div>}</form><button className="outline-wide" type="button" onClick={startDemo}>Explore demo without signing in <ArrowRight size={17}/></button><p className="muted-detail">Demo uses sample data. Your existing Holdings records are not affected.</p></div>:
   <><div className="welcome"><div className="eyebrow">YOUR PRIVATE LEDGER</div><h1>Good evening.</h1><p>Every buy-in signed. Every chip accounted for.</p></div><section className="overview-card"><div className="eyebrow blue-label">YOUR GAMES</div><strong>{games.length}</strong><p>{games.filter(x=>x.status==='live').length} live · {games.filter(x=>x.status==='closed').length} completed</p></section><div className="section-head"><h2>{section==='home'?'Your tables':section==='stats'?'Player overview':'Game history'}</h2>{section==='home'&&<button className="small-action" onClick={()=>setSheet({kind:'game'})}><Plus size={16}/> New game</button>}</div>
    {(section==='home'?games.filter(x=>x.status==='live'):section==='history'?games.filter(x=>x.status==='closed'):[]).map(x=><button className="game-row" key={x.id} onClick={()=>void openGame(x)}><div className="game-icon">♠</div><div className="player-main"><strong>{x.title}</strong><span>{new Date(x.started_at).toLocaleDateString()} · {x.currency} · {x.stakes||'Cash game'}</span></div><span className={'live-pill '+(x.status==='closed'?'muted':'')}><i/>{x.status==='closed'?'Closed':'Live'}</span><ChevronRight size={19} color="#787887"/></button>)}
    {section==='stats'&&<div className="empty-frame"><TrendingUp size={32}/><h3>Player insights</h3><p>{profiles.length} saved player profiles. Historical player analytics will be unlocked after the ledger migration is validated.</p></div>}
