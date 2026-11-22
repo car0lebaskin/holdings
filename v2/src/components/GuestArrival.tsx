@@ -13,11 +13,12 @@ type Props={
  onViewTable:()=>void;
  resolveAvatar:(path:string|null)=>string;
  demo:boolean;
+ scoped:boolean;
 };
 const money=(cents:number,currency:string)=>currency+' '+(cents/100).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});
 const initials=(s:string)=>s.trim().split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join('')||'?';
 
-export function GuestArrival({snapshot,selectedSeat,onSelect,onViewTable,resolveAvatar,demo}:Props){
+export function GuestArrival({snapshot,selectedSeat,onSelect,onViewTable,resolveAvatar,demo,scoped}:Props){
  const p=guestPlayerTotals(snapshot,selectedSeat);
  const currency=snapshot.game.currency;
  const isClosed=snapshot.game.status==='closed';
@@ -43,7 +44,7 @@ export function GuestArrival({snapshot,selectedSeat,onSelect,onViewTable,resolve
     })}
    </div>
   </>:<>
-   <button className="guest-back" type="button" onClick={()=>onSelect('')}><ArrowLeft size={17}/> Change player</button>
+   {!scoped&&<button className="guest-back" type="button" onClick={()=>onSelect('')}><ArrowLeft size={17}/> Change player</button>}
    <div className="guest-person-heading">
     <span className="guest-person-avatar guest-person-avatar-large">{initials(p.name)}{resolveAvatar(p.avatar_path)&&<img alt="" src={resolveAvatar(p.avatar_path)} loading="lazy"/>}</span>
     <div><div className="eyebrow">YOUR TABLE SUMMARY</div><h2>{p.name}</h2></div>
@@ -69,7 +70,7 @@ export function GuestArrival({snapshot,selectedSeat,onSelect,onViewTable,resolve
      </div>)}
     </div>}
   </>}
-  {p&&<button className="primary-btn guest-view-table" onClick={onViewTable} type="button">
+  {p&&!scoped&&<button className="primary-btn guest-view-table" onClick={onViewTable} type="button">
     View full table <ArrowRight size={18}/>
   </button>}
   <div className="info-note"><ShieldCheck size={17}/>{demo?'Demo values are illustrative and cannot be changed.':'Choosing a name personalizes the display; it does not verify identity. Guests cannot edit the table.'}</div>
