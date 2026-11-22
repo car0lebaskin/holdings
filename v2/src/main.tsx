@@ -420,3 +420,7 @@ async function compressImage(file:File):Promise<Blob>{
  }finally{src.close()}
 }
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);
+if ('serviceWorker' in navigator) {
+ window.addEventListener('load',()=>{void navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(err=>console.warn('Service worker registration failed',err))});
+}
+
