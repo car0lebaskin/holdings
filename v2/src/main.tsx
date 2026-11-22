@@ -437,11 +437,43 @@ function App(){
     </>}
     </div></main>
   </>:!user?<div className="auth-view"><div className="intro-label">YOUR PRIVATE LEDGER</div><h1>Every chip.<br/>Accounted for.</h1><p>A cleaner way to run your home game. Record buy-ins, track results and let friends watch live.</p><form onSubmit={async e=>{e.preventDefault();if(!db)return;setLoading(true);setError('');const {error:e2}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});setLoading(false);if(e2)setError(e2.message);else setEmailSent(true)}}><label>Email address</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="email" placeholder="you@example.com"/><button className="primary-btn" disabled={loading}>{loading?'Sending…':emailSent?'Send another login link':'Sign in with email'} <ArrowRight size={17}/></button>{emailSent&&<div className="info-note"><Check size={17}/> Check your email for a secure sign-in link.</div>}</form><button className="outline-wide" type="button" onClick={startDemo}>Explore demo without signing in <ArrowRight size={17}/></button><p className="muted-detail">Demo uses sample data. Your existing Holdings records are not affected.</p>{!standalone&&<button type="button" className="install-cta" onClick={()=>void requestInstall()}><Smartphone size={18}/> Install on your phone <ArrowRight size={17}/></button>}</div>:
-  <><div className="welcome"><div className="eyebrow">YOUR PRIVATE LEDGER</div><h1>Good evening.</h1><p>Every buy-in signed. Every chip accounted for.</p></div>{!standalone&&<button className="install-cta" onClick={()=>void requestInstall()}><Smartphone size={19}/> Install Holdings on your phone <ArrowRight size={17}/></button>}<section className="overview-card"><div className="eyebrow blue-label">YOUR GAMES</div><strong>{games.length}</strong><p>{games.filter(x=>x.status==='live').length} live · {games.filter(x=>x.status==='closed').length} completed</p></section><div className="section-head"><h2>{section==='home'?'Your tables':section==='stats'?'Player overview':'Game history'}</h2>{section==='home'&&<button className="small-action" onClick={()=>setSheet({kind:'game'})}><Plus size={16}/> New game</button>}</div>
-   {(section==='home'?games.filter(x=>x.status==='live'):section==='history'?games.filter(x=>x.status==='closed'):[]).map(x=><button className="game-row" key={x.id} onClick={()=>void openGame(x)}><div className="game-icon">♠</div><div className="player-main"><strong>{x.title}</strong><span>{new Date(x.started_at).toLocaleDateString()} · {x.currency} · {x.stakes||'Cash game'}</span></div><span className={'live-pill '+(x.status==='closed'?'muted':'')}><i/>{x.status==='closed'?'Closed':'Live'}</span><ChevronRight size={19} color="#787887"/></button>)}
-   {section==='stats'&&<Standings games={games} seats={statSeats} transactions={statLedger} loading={statsLoading}/>}
-   {section!=='stats'&&!games.some(x=>section==='home'?x.status==='live':x.status==='closed')&&<div className="empty-frame"><CircleDollarSign size={32}/><h3>{section==='home'?'Ready for the next game?':'No completed games yet'}</h3><p>{section==='home'?'Open your first Holdings table.':'Finished games appear here.'}</p></div>}
-   <nav className="bottom-nav" aria-label="Main navigation"><button className={section==='home'?'on':''} onClick={()=>setSection('home')}><Home size={22}/> Home</button><button className={section==='stats'?'on':''} onClick={()=>setSection('stats')}><TrendingUp size={22}/> Stats</button><button className={section==='history'?'on':''} onClick={()=>setSection('history')}><History size={22}/> History</button></nav>
+  <>
+   <main className="home-swipe-surface" onTouchStart={onHomeTouchStart} onTouchMove={onHomeTouchMove}
+    onTouchEnd={onHomeTouchEnd} onTouchCancel={()=>{homeTouch.current=null;setHomeDragX(0)}}
+    onClickCapture={e=>{if(homeSwipeConsumed.current){e.preventDefault();e.stopPropagation();homeSwipeConsumed.current=false}}}
+    style={{transform:'translate3d('+homeDragX+'px,0,0)',transition:homeDragX?'none':'transform .19s ease-out'}}>
+    <div key={section} className={'home-section-panel home-from-'+homeSwipeDir}>
+    {section==='home'&&<>
+     <div className="welcome"><div className="eyebrow">YOUR PRIVATE LEDGER</div><h1><Greeting/></h1><p>Every buy-in signed. Every chip accounted for.</p></div>
+     {!standalone&&<button className="install-cta" onClick={()=>void requestInstall()}><Smartphone size={19}/> Install Holdings on your phone <ArrowRight size={17}/></button>}
+     <section className="overview-card"><div className="eyebrow blue-label">YOUR GAMES</div><strong>{visibleGames.length}</strong><p>{liveGames.length} live · {closedGames.length} completed</p></section>
+     <div className="section-head"><h2>Live tables <span>{liveGames.length}</span></h2><button className="small-action" onClick={()=>setSheet({kind:'game'})}><Plus size={16}/> New game</button></div>
+     {liveGames.map(x=><button className="game-row" key={x.id} onClick={()=>void openGame(x)}><div className="game-icon">♠</div><div className="player-main"><strong>{x.title}</strong><span>{new Date(x.started_at).toLocaleDateString()} · {x.currency} · {x.stakes||'Cash game'}</span></div><span className="live-pill"><i/>Live</span><ChevronRight size={19}/></button>)}
+     {!liveGames.length&&<div className="empty-frame"><CircleDollarSign size={32}/><h3>{visibleGames.length?'No live tables':'Ready for your first game?'}</h3><p>{visibleGames.length?'Your '+closedGames.length+' completed game'+(closedGames.length===1?' is':'s are')+' in History. Start another table when ready.':'Create a table to record signed buy-ins and player results.'}</p></div>}
+    </>}
+    {section==='stats'&&<>
+     <div className="welcome alt-welcome"><div className="eyebrow">PLAYER PERFORMANCE</div><h1>Your stats.</h1><p>Cumulative profits and losses from completed games.</p></div>
+     <Standings games={visibleGames} seats={statSeats} transactions={statLedger} loading={statsLoading}/>
+    </>}
+    {section==='history'&&<>
+     <div className="welcome alt-welcome"><div className="eyebrow">COMPLETED SESSIONS</div><h1>Game history.</h1><p>Past results and signed transactions, kept in one place.</p></div>
+     <div className="section-head"><h2>Completed <span>{closedGames.length}</span></h2>
+      {closedGames.length>0&&<button className="small-action" onClick={()=>setHistoryEditing(v=>!v)}>{historyEditing?'Done':'Edit'}</button>}
+     </div>
+     {closedGames.map(x=><ClosedGameRow key={x.id} game={x} editing={historyEditing}
+      onEdit={()=>setHistoryEditing(true)}
+      onOpen={()=>void openGame(x)}
+      onRemove={()=>setSheet({kind:'remove',gameId:x.id})}/>)}
+     {!closedGames.length&&<div className="empty-frame"><History size={32}/><h3>No completed games</h3><p>Closed sessions appear here with their final settlement and signatures.</p></div>}
+     {closedGames.length>0&&!historyEditing&&<p className="history-hint">Press and hold a completed game to manage it.</p>}
+     {removedGames.length>0&&<section className="removed-section"><div className="section-head"><h2>Recently removed <span>{removedGames.length}</span></h2></div>
+      <p className="removed-subtitle">These games are hidden, not permanently deleted. You can restore them.</p>
+      {removedGames.map(x=><div className="removed-row" key={x.id}><div><strong>{x.title}</strong><small>{new Date(x.started_at).toLocaleDateString()} · {x.currency}</small></div><button onClick={()=>void restoreClosedGame(x.id)} disabled={loading}>Restore</button></div>)}
+     </section>}
+    </>}
+    </div>
+   </main>
+   <nav className="bottom-nav" aria-label="Main navigation"><button className={section==='home'?'on':''} onClick={()=>changeHomeSection('home')}><Home size={22}/> Home</button><button className={section==='stats'?'on':''} onClick={()=>changeHomeSection('stats')}><TrendingUp size={22}/> Stats</button><button className={section==='history'?'on':''} onClick={()=>changeHomeSection('history')}><History size={22}/> History</button></nav>
   </>}
   {error&&<div role="alert" className="error-banner"><span>{error}</span><button aria-label="Dismiss error" onClick={()=>setError('')}><X size={18}/></button></div>}
   {notice&&<div className="toast"><Check size={18}/>{notice}</div>}
