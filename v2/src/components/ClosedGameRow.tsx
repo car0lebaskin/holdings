@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState,type PointerEvent} from 'react';
-import {ChevronRight,Minus} from 'lucide-react';
+import {ChevronRight} from 'lucide-react';
 type ClosedGame={id:string;title:string;currency:string;stakes:string;started_at:string;status:'live'|'closed'};
 export function ClosedGameRow({game,editing,onEdit,onRemove,onOpen}:{
  game:ClosedGame;editing:boolean;onEdit:()=>void;onRemove:()=>void;onOpen:()=>void;
@@ -36,7 +36,7 @@ export function ClosedGameRow({game,editing,onEdit,onRemove,onOpen}:{
  return <div className={'history-item'+(editing?' wobble-edit':'')+(holding?' holding':'')}
    onPointerDown={down} onPointerMove={move} onPointerUp={stop} onPointerCancel={stop}
    onContextMenu={e=>{e.preventDefault();stop();onEdit()}}>
-   {editing&&<button type="button" className="history-remove" onClick={e=>{e.stopPropagation();onRemove()}} aria-label={'Remove '+game.title} title="Remove this completed game"><Minus size={15}/></button>}
+   {editing&&<button type="button" className="history-remove" onClick={e=>{e.stopPropagation();onRemove()}} aria-label={'Remove '+game.title} title="Remove this completed game"><span className="history-remove-line" aria-hidden="true"/></button>}
    <button className="game-row" onClick={click} type="button" aria-label={editing?'Editing '+game.title:'Open '+game.title}>
     <div className="game-icon">♠</div>
     <div className="player-main"><strong>{game.title}</strong><span>{new Date(game.started_at).toLocaleDateString()} · {game.currency} · {game.stakes||'Cash game'}</span></div>
