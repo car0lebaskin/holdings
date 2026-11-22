@@ -17,6 +17,7 @@ type Ledger={id:string;game_id:string;seat_id:string;owner_id:string;kind:'buyin
 type GuestSnapshot={game:{id:string;title:string;stakes:string;currency:string;status:string;started_at:string};players:{seat_id:string;name:string;avatar_path:string|null}[];transactions:{id:string;seat_id:string;kind:'buyin'|'cashout';amount_cents:number;voided:boolean;created_at:string}[]};
 type SheetState={kind:'game'|'seat'|'player'|'buyin'|'cashout'|'share'|'ledger'|'export'|'close'|'install'|'none';seatId?:string};
 type InstallEvent=Event & {prompt:()=>Promise<void>;userChoice:Promise<{outcome:string}>};
+type SettledPlayer={id:string;name:string;buyin:number;cashout:number|null;net:number|null;cashedOut:boolean;count:number};
 
 const initials=(name:string)=>name.trim().split(/\s+/).slice(0,2).map(part=>part[0]?.toUpperCase()||'').join('')||'?';
 const fmt=(cents:number,currency:string)=>currency+' '+(cents/100).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -335,7 +336,7 @@ function App(){
       {!settlement.allOut?<div className="info-note"><ShieldCheck size={17}/> Settlement unlocks when every player with a buy-in has cashed out. {settlement.cashedOutCount} of {settlement.participants.length} complete.</div>:
        <>
         <div className="section-head"><h2>Player results</h2></div>
-        {settlement.players.filter(p=>p.buyin>0).sort((a,b)=>(b.net??0)-(a.net??0)).map(s=>
+        {settlement.players.filter((p:SettledPlayer)=>p.buyin>0).sort((a:SettledPlayer,b:SettledPlayer)=>(b.net??0)-(a.net??0)).map((s:SettledPlayer)=>
          <article className="result-row" key={s.id}><span>{s.name}</span>
           <strong className={(s.net??0)>0?'amount-positive':(s.net??0)<0?'amount-negative':''}>{s.net===0?'Even':(s.net??0)>0?'+':'−'}{s.net===0?'':fmt(Math.abs(s.net||0),curr)}</strong>
          </article>)}
@@ -371,7 +372,7 @@ function App(){
       <label>{sheet.kind==='buyin'?'Buy-in amount':'Final stack'} ({curr})</label>
       <input className="amount-input" type="number" inputMode="decimal" step="0.01" min="0" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0.00" required/>
       {sheet.kind==='buyin'&&<div className="quick-amounts">{[1,2,3].map(n=><button type="button" key={n} onClick={()=>setAmount(String(n*(game?.default_buyin_cents||10000)/100))}>{fmt(n*(game?.default_buyin_cents||10000),curr)}</button>)}</div>}
-      {sheet.kind==='cashout'&&<div className="cashout-net">Net result: <strong className={(Number(amount||0)*100-(settlement.players.find(p=>p.id===sheet.seatId)?.buyin||0))>=0?'amount-positive':'amount-negative'}>{fmt(Math.round(Number(amount||0)*100)-(settlement.players.find(p=>p.id===sheet.seatId)?.buyin||0),curr)}</strong></div>}
+      {sheet.kind==='cashout'&&<div className="cashout-net">Net result: <strong className={(Number(amount||0)*100-(settlement.players.find((p:SettledPlayer)=>p.id===sheet.seatId)?.buyin||0))>=0?'amount-positive':'amount-negative'}>{fmt(Math.round(Number(amount||0)*100)-(settlement.players.find((p:SettledPlayer)=>p.id===sheet.seatId)?.buyin||0),curr)}</strong></div>}
       <label>Player signature for verification</label>
       <p className="subtle-copy">The player signs to acknowledge this recorded amount. It is not proof of legal identity.</p>
       <SignaturePad key={(sheet.kind||'')+'-'+(sheet.seatId||'')} onChange={setSignatureBlob} resetId={(sheet.kind||'')+'-'+(sheet.seatId||'')}/>
