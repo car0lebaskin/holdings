@@ -81,7 +81,7 @@ export async function verifyEncryptedBackup(file:File,passphrase:string){
  outer.cipher!=='AES-256-GCM'||outer.rounds!==220000)throw new Error('This is not a supported Holdings encrypted backup');
  const key=await deriveKey(passphrase,decode(outer.salt),outer.rounds,'decrypt');
  let plain:ArrayBuffer;
- try{plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:decode(outer.iv)},key,decode(outer.payload))}
+ try{plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:decode(outer.iv) as BufferSource},key,decode(outer.payload) as BufferSource)}
  catch{throw new Error('Incorrect passphrase or backup data is damaged')}
  const snap=JSON.parse(decoder.decode(plain)) as Snapshot;
  if(snap.format!=='holdings-v2-snapshot'||snap.version!==1||!snap.records||!snap.assets)throw new Error('Backup format invalid');
