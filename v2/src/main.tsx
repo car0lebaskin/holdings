@@ -584,6 +584,17 @@ function App(){
      <section className="overview-card"><div className="eyebrow blue-label">YOUR GAMES</div><strong>{visibleGames.length}</strong><p>{liveGames.length} live · {closedGames.length} completed</p></section>
      <div className="section-head"><h2>Live tables <span>{liveGames.length}</span></h2><button className="small-action" onClick={()=>setSheet({kind:'game'})}><Plus size={16}/> New game</button></div>
      {liveGames.map(x=><button className="game-row" key={x.id} onClick={()=>void openGame(x)}><div className="game-icon">♠</div><div className="player-main"><strong>{x.title}</strong><span>{new Date(x.started_at).toLocaleDateString()} · {x.currency} · {x.stakes||'Cash game'}</span></div><span className="live-pill"><i/>Live</span><ChevronRight size={19}/></button>)}
+     <div className="home-tools">
+      <details open={backupOpen} onToggle={e=>setBackupOpen((e.currentTarget as HTMLDetailsElement).open)}>
+       <summary>Backup &amp; recovery <ChevronRight size={18}/></summary>
+       {user&&db&&<BackupRecovery db={db} ownerId={user.id}/>}
+      </details>
+      <details open={profilesOpen} onToggle={e=>setProfilesOpen((e.currentTarget as HTMLDetailsElement).open)}>
+       <summary>Manage player profiles <ChevronRight size={18}/></summary>
+       {user&&db&&<ProfileEditor db={db} ownerId={user.id} profiles={profiles}
+        onUpdated={profile=>setProfiles(p=>p.map(x=>x.id===profile.id?profile:x))}/>}
+      </details>
+     </div>
      {!liveGames.length&&<div className="empty-frame"><CircleDollarSign size={32}/><h3>{visibleGames.length?'No live tables':'Ready for your first game?'}</h3><p>{visibleGames.length?'Your '+closedGames.length+' completed game'+(closedGames.length===1?' is':'s are')+' in History. Start another table when ready.':'Create a table to record signed buy-ins and player results.'}</p></div>}
     </>}
     {section==='stats'&&<>
@@ -645,7 +656,9 @@ function App(){
        onChange={blob=>{seatOpRef.current=null;setSignatureBlob(blob)}}/>
     </form>}
     {sheet.kind==='player'&&<><p className="subtle-copy">Change {imageProfile?.display_name}'s profile photo. Pictures follow the player into future games.</p><input ref={photoRef} type="file" accept="image/*" capture={undefined} className="hidden-input" onChange={e=>{const f=e.target.files?.[0];if(f)void uploadAvatar(f)}}/><button className="menu-row" onClick={()=>photoRef.current?.click()}><ImagePlus size={22}/> Choose photo <ChevronRight size={18}/></button><button className="menu-row" onClick={()=>{if(photoRef.current){photoRef.current.setAttribute('capture','environment');photoRef.current.click();photoRef.current.removeAttribute('capture')}}}><Camera size={22}/> Take photo <ChevronRight size={18}/></button></>}
-   {sheet.kind==='share'&&<><p className="subtle-copy">Send a read-only invitation. Friends can view the table without an account or access to your backend settings.</p><div className="invite-code">{game?short(game.invite_token):''}</div><button className="primary-btn" onClick={()=>void share()}><Share2 size={18}/> Share invite</button><button className="outline-wide" onClick={async()=>{if(!game)return;const u=new URL(location.origin+location.pathname);u.hash='join='+game.invite_token;await navigator.clipboard.writeText(u.toString());noticeNow('Link copied')}}><Copy size={18}/> Copy link</button></>}
+   {sheet.kind==='share'&&<><p className="subtle-copy">Send a read-only invitation. Friends can view the table without an account or access to your backend settings.</p><div className="invite-code">{game?short(game.invite_token):''}</div><button className="primary-btn" onClick={()=>void share()}><Share2 size={18}/> Share invite</button><button className="outline-wide" onClick={async()=>{if(!game)return;const u=new URL(location.origin+location.pathname);u.hash='join='+game.invite_token;await navigator.clipboard.writeText(u.toString());noticeNow('Link copied')}}><Copy size={18}/> Copy link</button>
+    {game&&user&&db&&<GuestLinkManager db={db} ownerId={user.id} gameId={game.id} seats={seats}/>}
+   </>}
    {(sheet.kind==='buyin'||sheet.kind==='cashout')&&<form id="signed-ledger-form" onSubmit={e=>{e.preventDefault();void addTransaction(sheet.kind as 'buyin'|'cashout',sheet.seatId||'')}}>
       <p className="subtle-copy">{seats.find(s=>s.id===sheet.seatId)?.display_name_snapshot||''}</p>
       <label>{sheet.kind==='buyin'?'Buy-in amount':'Final stack'} ({curr})</label>
@@ -665,7 +678,7 @@ function App(){
         {t.signature_path?
           signatureUrls[t.id]?<img className="signature-image" src={signatureUrls[t.id]} alt="Player signature"/>:<p className="subtle-copy">Loading private signature…</p>
           :<p className="subtle-copy">No signature on this earlier record.</p>}
-        {game&&!closed&&!t.voided_at&&<button className="danger-link" onClick={()=>void voidTransaction(t)}>Void {t.kind==='buyin'?'buy-in':'cash-out'} <RotateCcw size={14}/></button>}
+        {game&&!closed&&!t.voided_at&&<button className="danger-link" onClick={()=>startCorrection(t)}>Void {t.kind==='buyin'?'buy-in':'cash-out'} <RotateCcw size={14}/></button>}
       </div>)}
       {!ledger.some(t=>t.seat_id===sheet.seatId)&&<p className="subtle-copy">No transactions recorded.</p>}
     </div>}
