@@ -184,3 +184,21 @@ form>.primary-btn{margin-top:24px}
  .cashout-result strong{font-size:12px}
 }
 @media(prefers-reduced-motion:reduce){.tab-panel{animation:none!important}.tab-content{transition:none!important}}
+
+/* All-time stats and cumulative profit over time */
+.standings-page{padding:0 0 28px}
+.standings-page section{margin-bottom:24px}
+.stats-count{font-size:11px;font-weight:700;color:#9292a0;white-space:nowrap}
+.standings-chart{border:1px solid #2d3447;background:radial-gradient(circle at 30% 0,rgba(47,107,255,.12),transparent 65%),#181921;border-radius:19px;padding:18px 15px;margin-bottom:15px}
+.standings-chart>svg{width:100%;height:auto;display:block;margin:13px 0 5px;overflow:visible}
+.stats-legend{display:flex;flex-wrap:wrap;gap:9px 14px;font-size:11px;color:#b6b6c4}
+.stats-legend span{display:inline-flex;align-items:center;gap:6px}
+.stats-legend i{display:block;width:10px;height:10px;border-radius:4px;flex:none}
+.standings-list{background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden;padding:4px 15px}
+.standing-row{display:flex;align-items:center;gap:12px;padding:15px 2px;border-bottom:1px solid var(--line);min-width:0}
+.standing-row:last-child{border-bottom:0}
+.standing-rank{display:grid;place-items:center;flex:0 0 25px;height:25px;border-radius:50%;background:#292b39;color:#b5bad4;font-size:11px;font-weight:800}
+.standing-row>div{display:flex;flex-direction:column;flex:1;min-width:0;gap:5px}
+.standing-row>div strong{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.standing-row small{font-size:11px;color:#9999a5}
+.standing-row>strong{font-size:13px;white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
