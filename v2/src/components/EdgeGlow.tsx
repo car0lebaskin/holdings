@@ -1,56 +1,95 @@
 import {useEffect,useRef,useState} from 'react';
+
 type Side='top'|'bottom';
+type Glow={side:Side;mode:'held'|'release'|'impact';id:number};
+
+/* A held overscroll is a sustained state. Momentum scrolling uses a single
+   impact when the edge is reached; neither path continuously retriggers. */
 export function EdgeGlow(){
- const [pulse,setPulse]=useState<{side:Side;id:number}|null>(null);
- const touch=useRef<{y:number;time:number}|null>(null);
- const last=useRef({y:0,time:0});
- const cooldown=useRef(0);
- const reset=useRef<ReturnType<typeof setTimeout>|null>(null);
+ const [glow,setGlow]=useState<Glow|null>(null);
+ const current=useRef<Glow|null>(null);
+ const started=useRef<{y:number}|null>(null);
+ const heldSide=useRef<Side|null>(null);
+ const lastScroll=useRef({y:0,at:0});
+ const armed=useRef({top:true,bottom:true});
+ const timeout=useRef<ReturnType<typeof setTimeout>|null>(null);
+ const seq=useRef(0);
+
  useEffect(()=>{
-  function fire(side:Side){
-   const now=performance.now();
-   if(now-cooldown.current<360||document.querySelector('[role="dialog"]'))return;
-   cooldown.current=now;
-   if(reset.current)clearTimeout(reset.current);
-   setPulse({side,id:Math.round(now)});
-   reset.current=setTimeout(()=>setPulse(null),550);
+  function clearTimer(){if(timeout.current){clearTimeout(timeout.current);timeout.current=null}}
+  function show(value:Glow|null){current.current=value;setGlow(value)}
+  function edges(){
+   const full=Math.max(document.documentElement.scrollHeight,document.body.scrollHeight);
+   const bottomGap=full-(window.scrollY+window.innerHeight);
+   return {top:window.scrollY<=6,bottom:full>window.innerHeight+12&&bottomGap<=12,bottomGap};
   }
-  function atEdges(){
-   const documentHeight=Math.max(document.documentElement.scrollHeight,document.body.scrollHeight);
-   return {top:window.scrollY<=5,bottom:documentHeight>window.innerHeight+12&&window.scrollY+window.innerHeight>=documentHeight-10};
+  function blocked(){return !!document.querySelector('[role="dialog"]')}
+  function hold(side:Side){
+   if(heldSide.current===side)return;
+   clearTimer();
+   heldSide.current=side;
+   // Disarm the kinetic impact until the user moves away from this edge.
+   armed.current[side]=false;
+   show({side,mode:'held',id:++seq.current});
   }
-  const start=(e:TouchEvent)=>{if(e.touches.length!==1)return;touch.current={y:e.touches[0].clientY,time:performance.now()}};
-  const move=(e:TouchEvent)=>{
-   if(!touch.current||e.touches.length!==1)return;
-   const dy=e.touches[0].clientY-touch.current.y;
-   const edges=atEdges();
-   if(dy>24&&edges.top)fire('top');
-   if(dy< -24&&edges.bottom)fire('bottom');
-  };
-  const stop=()=>{touch.current=null};
-  const scroll=()=>{
+  function release(){
+   const side=heldSide.current;
+   if(!side)return;
+   heldSide.current=null;
+   clearTimer();
+   const id=current.current?.id||++seq.current;
+   show({side,mode:'release',id});
+   timeout.current=setTimeout(()=>{if(current.current?.id===id&&current.current.mode==='release')show(null)},360);
+  }
+  function impact(side:Side){
+   if(heldSide.current||!armed.current[side]||blocked())return;
+   clearTimer();
+   armed.current[side]=false;
+   const id=++seq.current;
+   show({side,mode:'impact',id});
+   timeout.current=setTimeout(()=>{if(current.current?.id===id&&current.current.mode==='impact')show(null)},550);
+  }
+  function touchStart(e:TouchEvent){
+   if(e.touches.length!==1||blocked())return;
+   started.current={y:e.touches[0].clientY};
+  }
+  function touchMove(e:TouchEvent){
+   if(e.touches.length!==1||!started.current)return;
+   const dy=e.touches[0].clientY-started.current.y;
+   const edge=edges();
+   const side:Side|null=dy>25&&edge.top?'top':dy< -25&&edge.bottom?'bottom':null;
+   if(side)hold(side);
+   else if(heldSide.current)release();
+  }
+  function touchStop(){started.current=null;release()}
+  function scroll(){
    const now=performance.now(),y=window.scrollY;
-   const dy=y-last.current.y,dt=Math.max(now-last.current.time,16);
-   last.current={y,time:now};
-   if(Math.abs(dy)/dt<0.65)return;
-   const edges=atEdges();
-   if(dy<0&&edges.top)fire('top');
-   if(dy>0&&edges.bottom)fire('bottom');
-  };
-  last.current={y:window.scrollY,time:performance.now()};
-  window.addEventListener('touchstart',start,{passive:true});
-  window.addEventListener('touchmove',move,{passive:true});
-  window.addEventListener('touchend',stop,{passive:true});
-  window.addEventListener('touchcancel',stop,{passive:true});
+   const delta=y-lastScroll.current.y;
+   const elapsed=Math.max(16,now-lastScroll.current.at);
+   lastScroll.current={y,at:now};
+   const e=edges();
+   if(!e.top&&y>35)armed.current.top=true;
+   if(!e.bottom&&e.bottomGap>35)armed.current.bottom=true;
+   if(heldSide.current||started.current)return;
+   if(Math.abs(delta)/elapsed<.65)return;
+   if(delta<0&&e.top)impact('top');
+   else if(delta>0&&e.bottom)impact('bottom');
+  }
+  lastScroll.current={y:window.scrollY,at:performance.now()};
+  window.addEventListener('touchstart',touchStart,{passive:true});
+  window.addEventListener('touchmove',touchMove,{passive:true});
+  window.addEventListener('touchend',touchStop,{passive:true});
+  window.addEventListener('touchcancel',touchStop,{passive:true});
   window.addEventListener('scroll',scroll,{passive:true});
   return ()=>{
-   window.removeEventListener('touchstart',start);
-   window.removeEventListener('touchmove',move);
-   window.removeEventListener('touchend',stop);
-   window.removeEventListener('touchcancel',stop);
+   window.removeEventListener('touchstart',touchStart);
+   window.removeEventListener('touchmove',touchMove);
+   window.removeEventListener('touchend',touchStop);
+   window.removeEventListener('touchcancel',touchStop);
    window.removeEventListener('scroll',scroll);
-   if(reset.current)clearTimeout(reset.current);
+   clearTimer();
   };
  },[]);
- return pulse?<div key={pulse.id} aria-hidden="true" className={'edge-glow edge-glow-'+pulse.side}/>:null;
+
+ return glow?<div aria-hidden="true" className={'edge-glow edge-glow-'+glow.side+' edge-glow-'+glow.mode}/>:null;
 }
