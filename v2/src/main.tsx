@@ -82,6 +82,7 @@ function App(){
  const homeTouch=useRef<{x:number;y:number}|null>(null);
  const homeSwipeConsumed=useRef(false);
  const busy=useRef(false);
+ const seatOpRef=useRef<string|null>(null);
  const isGuest=!!guest;
  const active=!!game||isGuest;
  const curr=game?.currency||guest?.game.currency||'RM';
@@ -228,23 +229,52 @@ function App(){
    if(e)throw e;setSheet({kind:'none'});await refreshHome();await openGame(data as Game);noticeNow('Table created');
   }catch(e){fail(e)}finally{busy.current=false;setLoading(false)}
  }
- async function makeProfile(){
-  if(!db||!user||busy.current)return;
-  if(!playerName.trim())return;
-  busy.current=true;setLoading(true);
-  try{
-   const {data,error:e}=await db.from('holdings_profiles').insert({owner_id:user.id,display_name:playerName.trim()}).select('*').single();
-   if(e)throw e;setProfiles(prev=>[...prev,data as Profile]);setSelectedProfile(data.id);setPlayerName('');setSheet({kind:'seat'});noticeNow('Player profile saved');
-  }catch(e){fail(e)}finally{busy.current=false;setLoading(false)}
+ function openSeatSheet(){
+  seatOpRef.current=null;
+  setPlayerName('');
+  setSelectedProfile('');
+  setSignatureBlob(null);
+  setError('');
+  setAmount(String((game?.default_buyin_cents||10000)/100));
+  setSheet({kind:'seat'});
  }
- async function seatPlayer(){
-  if(!db||!game||!selectedProfile||busy.current)return;
-  const profile=profiles.find(p=>p.id===selectedProfile);if(!profile)return;
-  busy.current=true;setLoading(true);
+ async function seatWithFirstBuyin(){
+  if(!db||!game||!user||busy.current)return;
+  if(game.status!=='live'){setError('This game is closed');return}
+  const name=playerName.trim();
+  if(!selectedProfile&&!name){setError('Choose an existing player or enter a new name');return}
+  if(!selectedProfile&&name.length>100){setError('Player name is too long');return}
+  const cents=toCents(amount);
+  if(cents===null||cents<=0){setError('Enter a first buy-in greater than zero');return}
+  if(!signatureBlob){setError('Player signature is required');return}
+  if(selectedProfile&&seats.some(s=>s.profile_id===selectedProfile)){
+   setError('This player is already seated');return;
+  }
+  busy.current=true;setLoading(true);setError('');
+  const operationId=seatOpRef.current||crypto.randomUUID();
+  seatOpRef.current=operationId;
+  const signaturePath=user.id+'/'+game.id+'/'+operationId+'.png';
   try{
-   const {data,error:e}=await db.from('holdings_seats').insert({game_id:game.id,profile_id:profile.id,display_name_snapshot:profile.display_name}).select('*').single();
-   if(e)throw e;setSeats(s=>[...s,data as Seat]);setSheet({kind:'none'});setSelectedProfile('');noticeNow('Player seated');
-  }catch(e){fail(e)}finally{busy.current=false;setLoading(false)}
+   const upload=await db.storage.from('holdings-signatures').upload(signaturePath,signatureBlob,{contentType:'image/png',upsert:false});
+   // A retry after an uncertain network result must reuse the same signed operation.
+   if(upload.error&&!/already exists|duplicate/i.test(upload.error.message))throw upload.error;
+   const {data,error:e}=await db.rpc('holdings_seat_and_buyin',{
+    p_game_id:game.id,p_profile_id:selectedProfile||null,p_display_name:selectedProfile?null:name,
+    p_amount_cents:cents,p_signature_path:signaturePath,p_operation_id:operationId
+   });
+   if(e)throw e;
+   if(!data||!data.seat||!data.transaction||!data.profile)throw new Error('Incomplete seating confirmation');
+   const result=data as {seat:Seat;transaction:Ledger;profile:Profile;replayed:boolean};
+   setProfiles(prev=>prev.some(p=>p.id===result.profile.id)?prev:[...prev,result.profile]);
+   setSeats(prev=>prev.some(s=>s.id===result.seat.id)?prev:[...prev,result.seat]);
+   setLedger(prev=>prev.some(t=>t.id===result.transaction.id)?prev:[...prev,result.transaction]);
+   setSheet({kind:'none'});setSelectedProfile('');setPlayerName('');setSignatureBlob(null);
+   seatOpRef.current=null;
+   setTab('table');
+   noticeNow(result.replayed?'Previous signed seating confirmed':'Player seated · first buy-in signed');
+   void refreshHome();
+  }catch(e){fail(e)}
+  finally{busy.current=false;setLoading(false)}
  }
  async function addTransaction(kind:'buyin'|'cashout',seatId:string){
   if(!db||!game||!user||busy.current)return;
@@ -383,7 +413,7 @@ function App(){
     style={{transform:'translate3d('+dragX+'px,0,0)',transition:dragX?'none':'transform .18s ease-out'}}>
     <div key={tab} className={'tab-panel tab-from-'+swipeDir}>
     {tab==='table'?<>
-     <div className="section-head"><h2>Players <span>{activeSeats.length}</span></h2>{game&&!closed&&<button className="small-action" onClick={()=>setSheet({kind:'seat'})}><Plus size={16}/> Add player</button>}</div>
+     <div className="section-head"><h2>Players <span>{activeSeats.length}</span></h2>{game&&!closed&&<button className="small-action" onClick={openSeatSheet}><Plus size={16}/> Add player</button>}</div>
      {!activeSeats.length&&<div className="empty-frame"><Users size={32}/><h3>No players seated</h3><p>Add the first player to start tracking this table.</p></div>}
      {seatBalances.map(s=><article className="player-row" key={s.id}>
        <Avatar name={s.display_name_snapshot} path={s.avatar_path} onClick={game&&!closed?()=>{const p=avatarProfile(s);if(p){setImageProfile(p);setSheet({kind:'player',seatId:s.id})}}:undefined}/>
