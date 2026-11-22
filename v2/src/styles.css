@@ -119,3 +119,68 @@ form>.primary-btn{margin-top:24px}
 @keyframes riseIn{from{transform:translateY(24px);opacity:.8}to{transform:translateY(0);opacity:1}}
 @media(max-width:365px){.app-shell{padding-inline:15px}.header-meta{font-size:9px}.hero{padding:19px 15px}.hero-grid{gap:5px}.hero-grid div{padding:11px 7px}.hero-grid small{font-size:10px}.player-row{padding:11px 8px;gap:8px}.avatar{width:42px;height:42px;flex-basis:42px}.mini-status{font-size:10px;padding:6px}.player-main strong{font-size:13px}.player-main span{font-size:11px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important;scroll-behavior:auto!important}}
+
+
+/* Parity restoration: responsive ledger details, signatures, swipe, and install */
+.app-shell{overflow-x:clip}
+.app-shell button>svg,.sheet button>svg,.tab-content button>svg,.game-row>svg{flex:0 0 auto;display:block;align-self:center}
+.game-row>svg:last-child{min-width:19px;margin-left:2px}
+.tab-content{overflow-x:clip;will-change:transform}
+.tab-panel{min-height:180px;animation-duration:230ms;animation-timing-function:cubic-bezier(.2,.75,.25,1);animation-fill-mode:both}
+.tab-panel.tab-from-left{animation-name:enterFromRight}
+.tab-panel.tab-from-right{animation-name:enterFromLeft}
+@keyframes enterFromRight{0%{opacity:.45;transform:translate3d(35px,0,0)}100%{opacity:1;transform:translate3d(0,0,0)}}
+@keyframes enterFromLeft{0%{opacity:.45;transform:translate3d(-35px,0,0)}100%{opacity:1;transform:translate3d(0,0,0)}}
+.ledger-link{display:inline-flex;align-items:center;gap:1px;align-self:flex-start;padding:3px 0;background:none;border:0;color:#91aeff;font-size:11px;font-weight:700;margin-top:4px}
+.ledger-link svg{width:13px;height:13px;flex:none}
+.row-arrow{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border-radius:50%;border:1px solid #3558a2;background:#294b90;color:#e2ebff;padding:0}
+.player-side{flex:0 0 auto;align-items:center;gap:6px}
+.player-side .mini-status{font-size:10px}
+.cashout-result{display:flex;flex-direction:column;align-items:flex-end;gap:7px;min-width:0}
+.cashout-result strong{font-size:14px;font-variant-numeric:tabular-nums;text-align:right}
+.recount-action{border:none;background:none;color:#b8caff;display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:5px 0}
+.transfer-row{background:var(--surface);border:1px solid var(--line);border-radius:17px;display:flex;align-items:center;justify-content:space-between;padding:15px;margin-bottom:9px;gap:12px;font-size:13px}
+.transfer-row>div{display:flex;gap:5px;flex-wrap:wrap;min-width:0;align-items:baseline}
+.transfer-row span{color:#9797a4}
+.transfer-row strong{font-weight:800}
+.transfer-row>b{flex:none;white-space:nowrap;color:#85ffbe;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.empty-mini{padding:16px;border-radius:15px;color:#9292a3;background:var(--surface);font-size:13px}
+.reconcile-warning{margin-top:15px;background:#3a2927;border:1px solid #734c3c;color:#ffb4a3;border-radius:14px;padding:14px;font-size:13px;line-height:1.6}
+.tab-panel .summary-card{margin-bottom:18px}
+.tab-panel .primary-btn{margin-top:22px}
+.tab-panel .outline-wide{margin-top:10px}
+.quick-amounts{display:flex;gap:8px;overflow-x:auto;margin:13px 0 5px;scrollbar-width:none}
+.quick-amounts button{flex:1 0 auto;border:none;border-radius:100px;background:#2b3655;color:#b8caff;font-size:12px;font-weight:750;padding:10px 12px}
+.cashout-net{display:flex;justify-content:space-between;align-items:center;margin:13px 0;font-size:13px;color:#acaebc}
+.sig-root{margin:12px 0 9px}
+.sig-frame{position:relative;border-radius:17px;border:1px solid #4a4b58;background:#0e1017;overflow:hidden;min-height:154px}
+.sig-canvas{display:block;width:100%;height:154px;touch-action:none;cursor:crosshair;position:relative;z-index:1}
+.sig-hint{pointer-events:none;position:absolute;inset:0;display:grid;place-items:center;color:#636777;font-size:13px;letter-spacing:.015em}
+.sig-hint.signed{display:none}
+.sig-footer{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#8f90a2;margin:10px 0 2px}
+.sig-footer button{border:none;background:none;color:#b8caff;display:flex;align-items:center;gap:7px;padding:7px 0;font-size:12px;font-weight:700}
+.audit-item{background:#121318;border:1px solid #363640;padding:14px;border-radius:15px;margin:10px 0}
+.audit-item.voided{border-color:#523733;opacity:.82}
+.audit-title{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;font-size:13px}
+.audit-title strong{font-weight:800}
+.audit-title span{color:#9999a6;font-size:11px;max-width:110px;text-align:right}
+.void-label{display:block;font-size:11px;color:#ff997d;margin:10px 0;font-weight:800;letter-spacing:.04em}
+.signature-image{display:block;width:min(100%,320px);height:auto;max-height:105px;object-fit:contain;background:#101219;border:1px solid #31323c;border-radius:10px;margin:12px 0}
+.danger-link{display:flex;align-items:center;gap:6px;background:none;border:0;color:#ff9c84;font-size:12px;font-weight:800;padding:7px 0}
+.export-text{display:block;width:100%;min-height:268px;resize:vertical;background:#0d0f14;border:1px solid #3b3d4d;border-radius:15px;color:#ebecf3;padding:14px;font-size:12px;line-height:1.65;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap}
+.install-cta{border:1px solid #3956a0;background:#18243f;color:#c2d1ff;border-radius:16px;width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 12px;font-size:13px;font-weight:850;margin:12px 0 21px}
+.install-cta svg:last-child{margin-left:auto}
+.install-instructions{background:#141820;border:1px solid #323b50;border-radius:16px;padding:17px;color:#e8eaf4;margin:10px 0}
+.install-instructions b{font-size:13px}
+.install-instructions p{color:#a8adc5;font-size:13px;line-height:1.6;margin:5px 0 15px}
+.install-instructions p:last-child{margin-bottom:0}
+.sheet{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.sheet .summary-card{margin:12px 0}
+@media(max-width:365px){
+ .player-row{gap:7px}
+ .player-side{gap:4px}
+ .row-arrow{width:31px;height:31px;flex-basis:31px}
+ .transfer-row{flex-direction:column;align-items:flex-start;gap:7px}
+ .cashout-result strong{font-size:12px}
+}
+@media(prefers-reduced-motion:reduce){.tab-panel{animation:none!important}.tab-content{transition:none!important}}
