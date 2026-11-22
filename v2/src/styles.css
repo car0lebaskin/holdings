@@ -263,3 +263,22 @@ form>.primary-btn{margin-top:24px}
 .history-remove:before{content:"";display:block;width:11px;height:2.5px;border-radius:2px;background:#fff;flex:none}
 .history-remove svg{display:none}
 @media(prefers-reduced-motion:reduce){.sheet-action-footer{transition:none}}
+
+
+/* Performance charts: informative with one session, responsive across phones. */
+.stats-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0 23px}
+.stats-overview>div{min-width:0;display:flex;flex-direction:column;gap:7px;padding:15px 13px;background:#1b1d26;border:1px solid #303442;border-radius:17px}
+.stats-overview span{font-size:11px;font-weight:750;color:#a4abc0}
+.stats-overview strong{font-family:'Inter Tight','Inter',system-ui,sans-serif;font-size:25px;font-weight:850;letter-spacing:-.04em;color:#f3f5ff;font-variant-numeric:tabular-nums}
+.standings-page .standings-chart{margin-top:5px}
+.standings-chart>svg{height:auto;min-height:170px;max-height:250px}
+.chart-label-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.chart-caption{font-size:11px;color:#a4aaba;font-weight:650}
+.stats-legend{display:flex;flex-wrap:wrap;gap:8px 15px;margin-top:11px}
+.stats-legend span{display:inline-flex;align-items:center;gap:6px;font-size:12px}
+.stats-legend strong{font-size:11px;color:#eef1fd;font-weight:750;font-variant-numeric:tabular-nums;margin-left:2px}
+.standings-page section> .summary-card{margin:14px 0 20px}
+.standings-page section>.standing-row{background:#17171b;padding:15px;border:1px solid #32333b;border-radius:15px;margin-bottom:8px}
+.standings-page .section-head h2{font-size:19px;min-width:0}
+.stats-info{margin-top:20px;margin-bottom:30px}
+@media(max-width:380px){.stats-overview{gap:5px}.stats-overview>div{padding:12px 9px}.stats-overview span{font-size:10px}.stats-overview strong{font-size:22px}.stats-legend strong{font-size:10px}}
