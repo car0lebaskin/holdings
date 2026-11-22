@@ -323,3 +323,63 @@ form>.primary-btn{margin-top:24px}
 .player-session-row>strong{font-size:13px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .player-breakdown .empty-mini{display:flex;align-items:center;gap:8px;line-height:1.5}
 @media(max-width:360px){.player-analytics-controls{flex-wrap:wrap}.focus-player-select{flex-basis:100%}.analytics-periods{width:100%;justify-content:space-around}.analytics-periods button{flex:1}}
+
+
+/* Guest invites start with personal totals, then opt into the full table. */
+.guest-arrival{padding:13px 0 calc(18px + env(safe-area-inset-bottom));min-height:60dvh}
+.guest-game-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px}
+.guest-game-title{font-size:clamp(32px,9vw,43px);line-height:1.07;letter-spacing:-.055em;font-weight:900}
+.guest-game-sub{font-size:13px;color:#9da0b3;line-height:1.55;margin:10px 0 26px}
+.guest-welcome-title{font-family:'Inter Tight','Inter',system-ui,sans-serif;font-size:32px;font-weight:900;letter-spacing:-.045em;margin:18px 0 8px}
+.guest-intro{font-size:14px;line-height:1.6;color:#a8aabd;margin:0 0 20px}
+.guest-people{display:flex;flex-direction:column;gap:9px;margin:10px 0 25px}
+.guest-person{display:flex;align-items:center;width:100%;text-align:left;gap:14px;border:1px solid #30313a;background:#191920;border-radius:19px;padding:14px 15px;color:#f5f5fa;min-height:73px;font-size:15px;font-weight:800}
+.guest-person:active{background:#25293e}
+.guest-person>span:nth-child(2){flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.guest-person>svg{color:#97b2ff;flex-shrink:0}
+.guest-person-avatar{width:45px;height:45px;flex:0 0 45px;border-radius:50%;background:#29498d;color:#ecf1ff;display:grid;place-items:center;position:relative;overflow:hidden;font-size:15px;font-weight:850}
+.guest-person-avatar img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.guest-person-avatar-large{width:57px;height:57px;flex-basis:57px;font-size:20px}
+.guest-back{border:0;background:none;color:#9db6ff;display:inline-flex;align-items:center;gap:8px;padding:6px 0 22px;font-size:13px;font-weight:800}
+.guest-person-heading{display:flex;align-items:center;gap:13px;margin:4px 0 18px}
+.guest-person-heading>div{min-width:0}
+.guest-person-heading h2{font-size:25px;font-weight:850;line-height:1.1;letter-spacing:-.035em;margin-top:6px;overflow:hidden;text-overflow:ellipsis}
+.guest-personal-total{background:radial-gradient(ellipse at 0% 0%,rgba(52,103,249,.2),transparent 75%),#181b27;border:1px solid #33456f;border-radius:25px;padding:23px 20px 19px}
+.guest-buyin-amount{font-family:'Inter Tight','Inter',system-ui,sans-serif;font-size:clamp(37px,10vw,57px);font-weight:900;letter-spacing:-.05em;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:12px 0 22px}
+.guest-summary-grid{display:grid;grid-template-columns:1fr 1.3fr;gap:9px}
+.guest-summary-grid>div{background:#121521;border-radius:15px;padding:12px 11px;min-width:0}
+.guest-summary-grid small{color:#a3adc7;display:block;font-size:11px;margin-bottom:7px}
+.guest-summary-grid strong{font-size:16px;font-weight:850;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.guest-net-result{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0;background:#191b23;border:1px solid #333743;border-radius:17px;padding:17px}
+.guest-net-result>div{display:flex;flex-direction:column;gap:5px;min-width:0}
+.guest-net-result span{font-size:12px;font-weight:800}
+.guest-net-result small{font-size:11px;color:#9ca1b0;line-height:1.5}
+.guest-net-result strong{white-space:nowrap;font-size:19px;font-variant-numeric:tabular-nums}
+.guest-activity{border:1px solid #2e303b;background:#17171d;border-radius:17px;padding:3px 15px;margin-bottom:16px}
+.guest-activity-row{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:14px 0;border-bottom:1px solid #30323d}
+.guest-activity-row:last-child{border-bottom:0}
+.guest-activity-row>div{display:flex;flex-direction:column;gap:6px;min-width:0}
+.guest-activity-row strong{font-weight:800;font-size:13px}
+.guest-activity-row small{font-size:11px;color:#9a9daa}
+.guest-activity-row>b{font-size:14px;font-weight:850;font-variant-numeric:tabular-nums;white-space:nowrap}
+.guest-view-table{margin-top:18px}
+.guest-arrival .info-note{margin-top:14px}
+
+/* Delete icon: one physical line, not an SVG plus a pseudo-element. */
+.history-remove{display:block;position:absolute;width:27px;height:27px;border-radius:50%;padding:0;line-height:0;top:50%;left:6px;transform:translateY(-50%);background:#d44954;color:#fff;border:0}
+.history-remove::before{content:none!important;display:none!important}
+.history-remove-line{display:block!important;position:absolute;left:50%;top:50%;width:11px;height:3px;border-radius:4px;background:#fff;transform:translate(-50%,-50%);margin:0;padding:0}
+@media(max-width:365px){.history-remove{left:3px}}
+
+/* Controlled edge response: glow stays on while held, fades once on release. */
+.edge-glow.edge-glow-held{animation:none!important;opacity:.88;filter:blur(5px)}
+.edge-glow.edge-glow-release{animation:edgeGlowRelease .36s ease-out both!important}
+.edge-glow.edge-glow-impact{animation:edgeImpact .55s cubic-bezier(.23,.75,.33,1) both}
+@keyframes edgeGlowRelease{
+ from{opacity:.88;filter:blur(5px)}
+ to{opacity:0;filter:blur(16px)}
+}
+@media(prefers-reduced-motion:reduce){
+ .edge-glow.edge-glow-held{opacity:.5;filter:none}
+ .edge-glow.edge-glow-release,.edge-glow.edge-glow-impact{animation:none!important}
+}
