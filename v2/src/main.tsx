@@ -91,6 +91,15 @@ function App(){
  useEffect(()=>{if(guestToken){void openGuest(guestToken)}},[guestToken]);
  useEffect(()=>{if(!guestToken)return;const interval=setInterval(()=>{if(!document.hidden)void refreshGuest(guestToken)},10000);return()=>clearInterval(interval)},[guestToken]);
 
+ useEffect(()=>{
+   const check=()=>setStandalone(window.matchMedia('(display-mode: standalone)').matches||(navigator as Navigator & {standalone?:boolean}).standalone===true);
+   check();const onPrompt=(event:Event)=>{event.preventDefault();setInstallEvent(event as InstallEvent)};
+   const onInstalled=()=>{setInstallEvent(null);check()};
+   window.addEventListener('beforeinstallprompt',onPrompt);
+   window.addEventListener('appinstalled',onInstalled);
+   return()=>{window.removeEventListener('beforeinstallprompt',onPrompt);window.removeEventListener('appinstalled',onInstalled)};
+  },[]);
+
  function startDemo(){
   const now=new Date().toISOString();
   setDemoMode(true);setGuestToken('');setGame(null);setTab('table');
@@ -282,8 +291,11 @@ function App(){
    <div className="topline"><button className="text-link" onClick={goHome}><ArrowLeft size={18}/> All games</button><div className="right-actions"><span className={'live-pill '+(closed?'muted':'')}><i/>{closed?'Closed':'Live'}</span>{game&&<button className="icon-control" title="Share table" onClick={()=>setSheet({kind:'share'})}><Share2 size={19}/></button>}</div></div>
    <div className="page-title"><div className="eyebrow">{isGuest?'YOU ARE VIEWING':'CURRENT GAME'}</div><h1>{titleText}</h1><p>{game?.stakes||guest?.game.stakes||'Cash game'} · {curr}{isGuest?' · Read only':''}</p></div>
    <section className="hero"><div className="eyebrow blue-label">TOTAL BUY-INS</div><div className="hero-amount"><span>{curr}</span>{(sums.ins/100).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2})}</div><div className="hero-grid"><div><small>Chips in play</small><strong>{fmt(sums.onTable,curr)}</strong></div><div><small>Paid out</small><strong>{fmt(sums.outs,curr)}</strong></div><div><small>Players</small><strong>{activeSeats.length}</strong></div></div></section>
-   <div className="segmented" role="tablist" aria-label="Table sections">{(['table','cashout','settle'] as const).map(t=><button type="button" role="tab" aria-selected={tab===t} className={tab===t?'selected':''} onClick={()=>setTab(t)} key={t}>{t==='table'?'Table':t==='cashout'?'Cash out':'Settle'}</button>)}</div>
-   <main onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd} className="tab-content">
+   <div className="segmented" role="tablist" aria-label="Table sections">{(['table','cashout','settle'] as const).map(t=><button type="button" role="tab" aria-selected={tab===t} className={tab===t?'selected':''} onClick={()=>changeTab(t)} key={t}>{t==='table'?'Table':t==='cashout'?'Cash out':'Settle'}</button>)}</div>
+   <main onTouchStart={onSwipeStart} onTouchMove={onSwipeMove} onTouchEnd={onSwipeEnd}
+    onTouchCancel={()=>{touchPoint.current=null;setDragX(0)}} className="tab-content"
+    style={{transform:'translate3d('+dragX+'px,0,0)',transition:dragX?'none':'transform .18s ease-out'}}>
+    <div key={tab} className={'tab-panel tab-from-'+swipeDir}>
     {tab==='table'?<>
      <div className="section-head"><h2>Players <span>{activeSeats.length}</span></h2>{game&&!closed&&<button className="small-action" onClick={()=>setSheet({kind:'seat'})}><Plus size={16}/> Add player</button>}</div>
      {!activeSeats.length&&<div className="empty-frame"><Users size={32}/><h3>No players seated</h3><p>Add the first player to start tracking this table.</p></div>}
@@ -298,7 +310,7 @@ function App(){
      <div className="section-head"><h2>Bank overview</h2></div><div className="summary-card"><div><span>Total buy-ins</span><strong>{fmt(sums.ins,curr)}</strong></div><div><span>Total cash-outs</span><strong>{fmt(sums.outs,curr)}</strong></div><div><span>Chips remaining</span><strong>{fmt(sums.onTable,curr)}</strong></div></div><div className="section-head"><h2>Player results</h2></div>{seatBalances.map(s=><article className="result-row" key={s.id}><span>{s.display_name_snapshot}</span><strong className={s.hasCashout?(s.cashout-s.total>=0?'amount-positive':'amount-negative'):''}>{s.hasCashout?fmt(s.cashout-s.total,curr):'In play'}</strong></article>)}
      <div className="info-note"><ShieldCheck size={17}/> Final settlement is available after all players cash out and bank totals reconcile.</div>
     </>}
-   </main>
+    </div></main>
   </>:!user?<div className="auth-view"><div className="intro-label">YOUR PRIVATE LEDGER</div><h1>Every chip.<br/>Accounted for.</h1><p>A cleaner way to run your home game. Record buy-ins, track results and let friends watch live.</p><form onSubmit={async e=>{e.preventDefault();if(!db)return;setLoading(true);setError('');const {error:e2}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});setLoading(false);if(e2)setError(e2.message);else setEmailSent(true)}}><label>Email address</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="email" placeholder="you@example.com"/><button className="primary-btn" disabled={loading}>{loading?'Sending…':emailSent?'Send another login link':'Sign in with email'} <ArrowRight size={17}/></button>{emailSent&&<div className="info-note"><Check size={17}/> Check your email for a secure sign-in link.</div>}</form><button className="outline-wide" type="button" onClick={startDemo}>Explore demo without signing in <ArrowRight size={17}/></button><p className="muted-detail">Demo uses sample data. Your existing Holdings records are not affected.</p></div>:
   <><div className="welcome"><div className="eyebrow">YOUR PRIVATE LEDGER</div><h1>Good evening.</h1><p>Every buy-in signed. Every chip accounted for.</p></div><section className="overview-card"><div className="eyebrow blue-label">YOUR GAMES</div><strong>{games.length}</strong><p>{games.filter(x=>x.status==='live').length} live · {games.filter(x=>x.status==='closed').length} completed</p></section><div className="section-head"><h2>{section==='home'?'Your tables':section==='stats'?'Player overview':'Game history'}</h2>{section==='home'&&<button className="small-action" onClick={()=>setSheet({kind:'game'})}><Plus size={16}/> New game</button>}</div>
    {(section==='home'?games.filter(x=>x.status==='live'):section==='history'?games.filter(x=>x.status==='closed'):[]).map(x=><button className="game-row" key={x.id} onClick={()=>void openGame(x)}><div className="game-icon">♠</div><div className="player-main"><strong>{x.title}</strong><span>{new Date(x.started_at).toLocaleDateString()} · {x.currency} · {x.stakes||'Cash game'}</span></div><span className={'live-pill '+(x.status==='closed'?'muted':'')}><i/>{x.status==='closed'?'Closed':'Live'}</span><ChevronRight size={19} color="#787887"/></button>)}
