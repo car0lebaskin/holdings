@@ -4,6 +4,7 @@ import {Standings} from './components/Standings';
 import {Greeting} from './components/Greeting';
 import {ClosedGameRow} from './components/ClosedGameRow';
 import {EdgeGlow} from './components/EdgeGlow';
+import {GuestArrival} from './components/GuestArrival';
 import {calculateSettlement, exportSummary} from './lib/settlement.mjs';
 import { createRoot } from 'react-dom/client';
 import { createClient, type User } from '@supabase/supabase-js';
@@ -54,6 +55,8 @@ function App(){
  const [ledger,setLedger]=useState<Ledger[]>([]);
  const [guest,setGuest]=useState<GuestSnapshot|null>(null);
  const [guestToken,setGuestToken]=useState('');
+ const [guestSelectedSeat,setGuestSelectedSeat]=useState('');
+ const [guestShowTable,setGuestShowTable]=useState(false);
  const [demoMode,setDemoMode]=useState(false);
  const [section,setSection]=useState<'home'|'stats'|'history'>('home');
  const [homeDragX,setHomeDragX]=useState(0);
@@ -186,7 +189,7 @@ function App(){
 
  function startDemo(){
   const now=new Date().toISOString();
-  setDemoMode(true);setGuestToken('');setGame(null);setTab('table');
+  setDemoMode(true);setGuestToken('');setGame(null);setTab('table');setGuestSelectedSeat('');setGuestShowTable(false);
   setGuest({game:{id:'preview',title:'Friday Cash Game',stakes:'1 / 2',currency:'RM',status:'live',started_at:now},
     players:[{seat_id:'p1',name:'Alex Chen',avatar_path:null},{seat_id:'p2',name:'Jamie Lee',avatar_path:null},{seat_id:'p3',name:'Sam Tan',avatar_path:null},{seat_id:'p4',name:'Taylor Wong',avatar_path:null}],
     transactions:[{id:'t1',seat_id:'p1',kind:'buyin',amount_cents:50000,voided:false,created_at:now},{id:'t2',seat_id:'p1',kind:'buyin',amount_cents:50000,voided:false,created_at:now},{id:'t3',seat_id:'p2',kind:'buyin',amount_cents:50000,voided:false,created_at:now},{id:'t4',seat_id:'p3',kind:'buyin',amount_cents:100000,voided:false,created_at:now},{id:'t5',seat_id:'p3',kind:'cashout',amount_cents:130000,voided:false,created_at:now},{id:'t6',seat_id:'p4',kind:'buyin',amount_cents:50000,voided:false,created_at:now}]});
@@ -283,7 +286,7 @@ function App(){
   if(e)throw e;if(!data){setGuest(null);throw new Error('Invite not found or no longer valid')}setGuest(data as GuestSnapshot);
  }
  async function openGuest(token:string){
-  if(!db)return;setDemoMode(false);setError('');setLoading(true);setGame(null);setGuest(null);setTab('table');
+  if(!db)return;setDemoMode(false);setError('');setLoading(true);setGame(null);setGuest(null);setTab('table');setGuestSelectedSeat('');setGuestShowTable(false);
   try{await refreshGuest(token)}catch(e){fail(e)}finally{setLoading(false)}
  }
  async function createGame(){
@@ -459,7 +462,7 @@ function App(){
   else {await navigator.clipboard.writeText(msg+'\n'+url.toString());noticeNow('Invite link copied')}}
   catch(e){if((e as Error).name!=='AbortError')fail(e)}
  }
- function goHome(){setDemoMode(false);setGame(null);setGuest(null);setGuestToken('');history.replaceState(null,'',location.pathname);setSheet({kind:'none'});setTab('table');if(user)void refreshHome()}
+ function goHome(){setDemoMode(false);setGame(null);setGuest(null);setGuestToken('');setGuestSelectedSeat('');setGuestShowTable(false);history.replaceState(null,'',location.pathname);setSheet({kind:'none'});setTab('table');if(user)void refreshHome()}
  const seatBalances=activeSeats.map(s=>{const tx=sums.live.filter(t=>t.seat_id===s.id);const total=tx.filter(t=>t.kind==='buyin').reduce((n,t)=>n+Number(t.amount_cents),0);const cashout=tx.filter(t=>t.kind==='cashout').reduce((n,t)=>n+Number(t.amount_cents),0);return {...s,total,cashout,hasCashout:tx.some(t=>t.kind==='cashout'),count:tx.filter(t=>t.kind==='buyin').length}});
  const closed=game?.status==='closed'||guest?.game.status==='closed';
  const titleText=game?.title||guest?.game.title||'';
@@ -469,8 +472,10 @@ function App(){
   <header className="header"><div className="brand"><div className="brand-symbol">♠</div><span>Holdings</span></div><span className="header-meta">{active?'TABLE LEDGER':'PRIVATE POKER LEDGER'}</span></header>
   {!db?<section className="empty-frame"><ShieldCheck size={32}/><h2>Preview configuration required</h2><p>Add Supabase project URL and publishable key in Vercel project environment variables.</p></section>:
   initializing?<div className="loading-line"><LoaderCircle size={20} className="spin"/> Starting Holdings…</div>:
-  active?<>
-   <div className="topline"><button className="text-link" onClick={goHome}><ArrowLeft size={18}/> All games</button><div className="right-actions"><span className={'live-pill '+(closed?'muted':'')}><i/>{closed?'Closed':'Live'}</span>{game&&<button className="icon-control" title="Share table" onClick={()=>setSheet({kind:'share'})}><Share2 size={19}/></button>}</div></div>
+  active?(isGuest&&!guestShowTable&&guest?<GuestArrival snapshot={guest} selectedSeat={guestSelectedSeat}
+    onSelect={setGuestSelectedSeat} onViewTable={()=>setGuestShowTable(true)}
+    resolveAvatar={avatarUrl} demo={demoMode}/>:<>
+   <div className="topline"><button className="text-link" onClick={isGuest?()=>setGuestShowTable(false):goHome}><ArrowLeft size={18}/> {isGuest?'My buy-ins':'All games'}</button><div className="right-actions"><span className={'live-pill '+(closed?'muted':'')}><i/>{closed?'Closed':'Live'}</span>{game&&<button className="icon-control" title="Share table" onClick={()=>setSheet({kind:'share'})}><Share2 size={19}/></button>}</div></div>
    <div className="page-title"><div className="eyebrow">{isGuest?'YOU ARE VIEWING':'CURRENT GAME'}</div><div className="sync-indicator" aria-live="polite"><span className={syncMode==='live'?'sync-dot sync-connected':'sync-dot'}/>{demoMode?'Demo data':syncMode==='live'?'Live sync':'Auto-refresh'}</div><h1>{titleText}</h1><p>{game?.stakes||guest?.game.stakes||'Cash game'} · {curr}{isGuest?' · Read only':''}</p></div>
    <section className="hero"><div className="eyebrow blue-label">TOTAL BUY-INS</div><div className="hero-amount"><span>{curr}</span>{(sums.ins/100).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2})}</div><div className="hero-grid"><div><small>Chips in play</small><strong>{fmt(sums.onTable,curr)}</strong></div><div><small>Paid out</small><strong>{fmt(sums.outs,curr)}</strong></div><div><small>Players</small><strong>{activeSeats.length}</strong></div></div></section>
    <div className="segmented" role="tablist" aria-label="Table sections">{(['table','cashout','settle'] as const).map(t=><button type="button" role="tab" aria-selected={tab===t} className={tab===t?'selected':''} onClick={()=>changeTab(t)} key={t}>{t==='table'?'Table':t==='cashout'?'Cash out':'Settle'}</button>)}</div>
@@ -492,7 +497,7 @@ function App(){
         {game&&!closed&&!s.hasCashout&&<button className="row-arrow" title="Record buy-in" aria-label={'Record buy-in for '+s.display_name_snapshot} onClick={()=>openTransaction('buyin',s.id)}><Plus size={19}/></button>}
        </div>
       </article>)}
-     {game&&!closed&&<button className="primary-btn add-transaction" onClick={()=>setSheet({kind:'seat'})}><Plus size={19}/> Seat player</button>}
+     {game&&!closed&&<button className="primary-btn add-transaction" onClick={openSeatSheet}><Plus size={19}/> Seat player</button>}
      {isGuest&&<div className="info-note"><ShieldCheck size={17}/>{demoMode?'Demo preview: sample data only. No changes are saved.':'Guest access is read only. The host controls all changes.'}</div>}
     </>:tab==='cashout'?<>
      <div className="section-head"><h2>Cash out</h2></div>
@@ -532,7 +537,7 @@ function App(){
 
     </>}
     </div></main>
-  </>:!user?<div className="auth-view"><div className="intro-label">YOUR PRIVATE LEDGER</div><h1>Every chip.<br/>Accounted for.</h1><p>A cleaner way to run your home game. Record buy-ins, track results and let friends watch live.</p><form onSubmit={async e=>{e.preventDefault();if(!db)return;setLoading(true);setError('');const {error:e2}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});setLoading(false);if(e2)setError(e2.message);else setEmailSent(true)}}><label>Email address</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="email" placeholder="you@example.com"/><button className="primary-btn" disabled={loading}>{loading?'Sending…':emailSent?'Send another login link':'Sign in with email'} <ArrowRight size={17}/></button>{emailSent&&<div className="info-note"><Check size={17}/> Check your email for a secure sign-in link.</div>}</form><button className="outline-wide" type="button" onClick={startDemo}>Explore demo without signing in <ArrowRight size={17}/></button><p className="muted-detail">Demo uses sample data. Your existing Holdings records are not affected.</p>{!standalone&&<button type="button" className="install-cta" onClick={()=>void requestInstall()}><Smartphone size={18}/> Install on your phone <ArrowRight size={17}/></button>}</div>:
+  </>):!user?<div className="auth-view"><div className="intro-label">YOUR PRIVATE LEDGER</div><h1>Every chip.<br/>Accounted for.</h1><p>A cleaner way to run your home game. Record buy-ins, track results and let friends watch live.</p><form onSubmit={async e=>{e.preventDefault();if(!db)return;setLoading(true);setError('');const {error:e2}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});setLoading(false);if(e2)setError(e2.message);else setEmailSent(true)}}><label>Email address</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="email" placeholder="you@example.com"/><button className="primary-btn" disabled={loading}>{loading?'Sending…':emailSent?'Send another login link':'Sign in with email'} <ArrowRight size={17}/></button>{emailSent&&<div className="info-note"><Check size={17}/> Check your email for a secure sign-in link.</div>}</form><button className="outline-wide" type="button" onClick={startDemo}>Explore demo without signing in <ArrowRight size={17}/></button><p className="muted-detail">Demo uses sample data. Your existing Holdings records are not affected.</p>{!standalone&&<button type="button" className="install-cta" onClick={()=>void requestInstall()}><Smartphone size={18}/> Install on your phone <ArrowRight size={17}/></button>}</div>:
   <>
    <main className="home-swipe-surface" onTouchStart={onHomeTouchStart} onTouchMove={onHomeTouchMove}
     onTouchEnd={onHomeTouchEnd} onTouchCancel={()=>{homeTouch.current=null;setHomeDragX(0)}}
