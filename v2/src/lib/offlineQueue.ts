@@ -13,16 +13,22 @@ function openDb():Promise<IDBDatabase>{
   request.onerror=()=>reject(request.error||new Error('Offline storage unavailable'));
  });
 }
-async function txn<T>(mode:IDBTransactionMode,work:(store:IDBObjectStore,resolve:(v:T)=>void,reject:(e:Error)=>void)=>void):Promise<T>{
+async function txn<T>(mode:IDBTransactionMode,work:(store:IDBObjectStore,done:(v:T)=>void,reject:(e:Error)=>void)=>void):Promise<T>{
  const db=await openDb();
  return new Promise<T>((resolve,reject)=>{
+  let response!:T;
+  let failed=false;
   const transaction=db.transaction(STORE,mode);
   const store=transaction.objectStore(STORE);
-  transaction.oncomplete=()=>db.close();
-  transaction.onerror=()=>{db.close();reject(transaction.error||new Error('Offline storage failed'))};
-  work(store,resolve,reject);
+  const rejectOnce=(e:Error)=>{if(!failed){failed=true;reject(e)}};
+  transaction.oncomplete=()=>{db.close();if(!failed)resolve(response)};
+  transaction.onabort=()=>{db.close();rejectOnce(transaction.error||new Error('Offline transaction aborted'))};
+  transaction.onerror=()=>rejectOnce(transaction.error||new Error('Offline transaction failed'));
+  try{work(store,v=>{response=v},rejectOnce)}
+  catch(e){transaction.abort();rejectOnce(e instanceof Error?e:new Error(String(e)))}
  });
 }
+
 export async function savePending(op:QueuedSignedTransaction):Promise<void>{
  return txn<void>('readwrite',(store,resolve,reject)=>{
   const request=store.put(op);request.onsuccess=()=>resolve();request.onerror=()=>reject(request.error||new Error('Cannot save pending signed record'));
