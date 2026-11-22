@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {SignaturePad} from './components/SignaturePad';
+import {calculateSettlement, exportSummary} from './lib/settlement.mjs';
 import { createRoot } from 'react-dom/client';
 import { createClient, type User } from '@supabase/supabase-js';
-import { ArrowLeft, ArrowRight, Camera, Check, ChevronRight, CircleDollarSign, Copy, History, Home, ImagePlus, LoaderCircle, Plus, Share2, ShieldCheck, TrendingUp, Users, Wallet, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Camera, Check, ChevronRight, CircleDollarSign, Copy, Download, FileText, History, Home, ImagePlus, LoaderCircle, Plus, RotateCcw, Share2, ShieldCheck, Smartphone, TrendingUp, Users, Wallet, X } from 'lucide-react';
 import './styles.css';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -11,9 +13,10 @@ const db = supabaseUrl && supabaseKey ? createClient(supabaseUrl,supabaseKey) : 
 type Game={id:string;owner_id:string;title:string;stakes:string;currency:string;default_buyin_cents:number;status:'live'|'closed';invite_token:string;started_at:string};
 type Profile={id:string;owner_id:string;display_name:string;avatar_path:string|null};
 type Seat={id:string;game_id:string;profile_id:string;display_name_snapshot:string;created_at:string};
-type Ledger={id:string;game_id:string;seat_id:string;owner_id:string;kind:'buyin'|'cashout';amount_cents:number;voided_at:string|null;created_at:string};
+type Ledger={id:string;game_id:string;seat_id:string;owner_id:string;kind:'buyin'|'cashout';amount_cents:number;voided_at:string|null;signature_path:string|null;created_at:string};
 type GuestSnapshot={game:{id:string;title:string;stakes:string;currency:string;status:string;started_at:string};players:{seat_id:string;name:string;avatar_path:string|null}[];transactions:{id:string;seat_id:string;kind:'buyin'|'cashout';amount_cents:number;voided:boolean;created_at:string}[]};
-type SheetState={kind:'game'|'seat'|'player'|'buyin'|'cashout'|'share'|'none';seatId?:string};
+type SheetState={kind:'game'|'seat'|'player'|'buyin'|'cashout'|'share'|'ledger'|'export'|'close'|'install'|'none';seatId?:string};
+type InstallEvent=Event & {prompt:()=>Promise<void>;userChoice:Promise<{outcome:string}>};
 
 const initials=(name:string)=>name.trim().split(/\s+/).slice(0,2).map(part=>part[0]?.toUpperCase()||'').join('')||'?';
 const fmt=(cents:number,currency:string)=>currency+' '+(cents/100).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -56,9 +59,15 @@ function App(){
  const [playerName,setPlayerName]=useState('');
  const [selectedProfile,setSelectedProfile]=useState('');
  const [amount,setAmount]=useState('');
+ const [signatureBlob,setSignatureBlob]=useState<Blob|null>(null);
+ const [signatureUrls,setSignatureUrls]=useState<Record<string,string>>({});
+ const [dragX,setDragX]=useState(0);
+ const [swipeDir,setSwipeDir]=useState<'left'|'right'>('left');
+ const [installEvent,setInstallEvent]=useState<InstallEvent|null>(null);
+ const [standalone,setStandalone]=useState(false);
  const [imageProfile,setImageProfile]=useState<Profile|null>(null);
  const photoRef=useRef<HTMLInputElement>(null);
- const touchX=useRef<number|null>(null);
+ const touchPoint=useRef<{x:number;y:number}|null>(null);
  const busy=useRef(false);
  const isGuest=!!guest;
  const active=!!game||isGuest;
@@ -66,6 +75,8 @@ function App(){
  const activeSeats=isGuest?(guest?.players||[]).map(p=>({id:p.seat_id,display_name_snapshot:p.name,profile_id:'',game_id:'',created_at:'',avatar_path:p.avatar_path})):seats.map(s=>({...s,avatar_path:profiles.find(p=>p.id===s.profile_id)?.avatar_path||null}));
  const currentLedger=isGuest?(guest?.transactions||[]):ledger;
  const sums=useMemo(()=>pool(currentLedger),[currentLedger]);
+ const settlement=calculateSettlement(activeSeats,currentLedger);
+ const summaryText=exportSummary({title:game?.title||guest?.game.title||'Game',currency:curr,stakes:game?.stakes||guest?.game.stakes||'',status:game?.status||guest?.game.status||'live',started_at:game?.started_at||guest?.game.started_at||new Date().toISOString()},settlement);
  const noticeNow=(msg:string)=>{setNotice(msg);setTimeout(()=>setNotice(''),2500)};
  const fail=(e:unknown)=>{setError(errMsg(e));setLoading(false)};
 
@@ -141,16 +152,99 @@ function App(){
   }catch(e){fail(e)}finally{busy.current=false;setLoading(false)}
  }
  async function addTransaction(kind:'buyin'|'cashout',seatId:string){
-  if(!db||!game||!user||busy.current)return;const cents=toCents(amount);
+  if(!db||!game||!user||busy.current)return;
+  const cents=toCents(amount);
   if(cents===null||(kind==='buyin'&&cents===0)){setError('Enter a valid amount');return}
+  if(!signatureBlob){setError('Player signature is required');return}
   if(game.status==='closed'){setError('This game is closed');return}
   const hasCashout=ledger.some(x=>x.seat_id===seatId&&x.kind==='cashout'&&!x.voided_at);
+  const hasBuyin=ledger.some(x=>x.seat_id===seatId&&x.kind==='buyin'&&!x.voided_at);
   if(hasCashout){setError('This player has already cashed out');return}
+  if(kind==='cashout'&&!hasBuyin){setError('Record a buy-in before cash-out');return}
+  busy.current=true;setLoading(true);setError('');
+  const id=crypto.randomUUID();
+  const signaturePath=user.id+'/'+game.id+'/'+id+'.png';
+  let uploaded=false;
+  try{
+   const upload=await db.storage.from('holdings-signatures').upload(signaturePath,signatureBlob,{contentType:'image/png'});
+   if(upload.error)throw upload.error;
+   uploaded=true;
+   const {data,error:e}=await db.from('holdings_ledger').insert({id,owner_id:user.id,game_id:game.id,seat_id:seatId,kind,amount_cents:cents,signature_path:signaturePath,client_operation_id:id}).select('*').single();
+   if(e)throw e;
+   setLedger(l=>[...l,data as Ledger]);setSheet({kind:'none'});setAmount('');setSignatureBlob(null);
+   noticeNow(kind==='buyin'?'Signed buy-in recorded':'Signed cash-out recorded');
+  }catch(e){if(uploaded)await db.storage.from('holdings-signatures').remove([signaturePath]);fail(e)}
+  finally{busy.current=false;setLoading(false)}
+ }
+ async function openLedger(seatId:string){
+  if(!db)return;
+  setSheet({kind:'ledger',seatId});setError('');
+  const signed=ledger.filter(x=>x.seat_id===seatId&&x.signature_path);
+  const urls=await Promise.all(signed.map(async t=>{
+   const {data}=await db.storage.from('holdings-signatures').createSignedUrl(t.signature_path!,3600);
+   return {id:t.id,url:data?.signedUrl||''};
+  }));
+  setSignatureUrls(prev=>({...prev,...Object.fromEntries(urls.map(x=>[x.id,x.url]))}));
+ }
+ async function voidTransaction(tx:Ledger){
+  if(!db||!game||busy.current||game.status==='closed')return;
+  if(!window.confirm('Void this '+(tx.kind==='buyin'?'buy-in':'cash-out')+'? The signed entry stays in the audit trail.'))return;
   busy.current=true;setLoading(true);setError('');
   try{
-   const {data,error:e}=await db.from('holdings_ledger').insert({owner_id:user.id,game_id:game.id,seat_id:seatId,kind,amount_cents:cents,client_operation_id:crypto.randomUUID()}).select('*').single();
-   if(e)throw e;setLedger(l=>[...l,data as Ledger]);setSheet({kind:'none'});setAmount('');noticeNow(kind==='buyin'?'Buy-in recorded':'Cash-out recorded');
+   const {data,error:e}=await db.from('holdings_ledger').update({voided_at:new Date().toISOString()}).eq('id',tx.id).eq('game_id',game.id).is('voided_at',null).select('*').single();
+   if(e)throw e;
+   setLedger(prev=>prev.map(t=>t.id===tx.id?data as Ledger:t));noticeNow(tx.kind==='cashout'?'Cash-out voided; recount available':'Buy-in voided');
   }catch(e){fail(e)}finally{busy.current=false;setLoading(false)}
+ }
+ async function closeGame(){
+  if(!db||!game||busy.current)return;
+  if(!settlement.ready){setError('Cash out every player and reconcile the bank before closing');return}
+  busy.current=true;setLoading(true);setError('');
+  try{
+   const {data,error:e}=await db.from('holdings_games').update({status:'closed'}).eq('id',game.id).eq('status','live').select('*').single();
+   if(e)throw e;
+   setGame(data as Game);setGames(prev=>prev.map(g=>g.id===data.id?data as Game:g));
+   setSheet({kind:'export'});setTab('settle');noticeNow('Game closed; results saved to history');
+  }catch(e){fail(e)}finally{busy.current=false;setLoading(false)}
+ }
+ function downloadSummary(){
+  const file=new Blob([summaryText],{type:'text/plain;charset=utf-8'});
+  const link=URL.createObjectURL(file);const anchor=document.createElement('a');anchor.href=link;
+  anchor.download='Holdings-'+(game?.title||guest?.game.title||'Game').replace(/[^a-z0-9]+/gi,'-')+'-summary.txt';
+  document.body.append(anchor);anchor.click();anchor.remove();URL.revokeObjectURL(link);
+ }
+ function openTransaction(kind:'buyin'|'cashout',seatId:string){
+  setSignatureBlob(null);
+  setAmount(kind==='buyin'?String((game?.default_buyin_cents||10000)/100):'');
+  setSheet({kind,seatId});
+ }
+ function changeTab(next:'table'|'cashout'|'settle'){
+  if(next===tab)return;
+  const order=['table','cashout','settle'];
+  setSwipeDir(order.indexOf(next)>order.indexOf(tab)?'left':'right');
+  setTab(next);
+ }
+ function onSwipeStart(e:React.TouchEvent){
+  if((e.target as HTMLElement).closest('button,input,textarea,select,canvas,.sheet,[data-noswipe]'))return;
+  const p=e.touches[0];touchPoint.current={x:p.clientX,y:p.clientY};
+ }
+ function onSwipeMove(e:React.TouchEvent){
+  const start=touchPoint.current;if(!start)return;
+  const dx=e.touches[0].clientX-start.x,dy=e.touches[0].clientY-start.y;
+  if(Math.abs(dx)>12&&Math.abs(dx)>Math.abs(dy)*1.35)setDragX(Math.max(-90,Math.min(90,dx*.5)));
+ }
+ function onSwipeEnd(e:React.TouchEvent){
+  const start=touchPoint.current;touchPoint.current=null;
+  setDragX(0);if(!start)return;
+  const dx=e.changedTouches[0].clientX-start.x,dy=e.changedTouches[0].clientY-start.y;
+  if(Math.abs(dx)<65||Math.abs(dx)<=Math.abs(dy)*1.35)return;
+  const tabs:['table','cashout','settle']=['table','cashout','settle'];
+  const next=Math.max(0,Math.min(2,tabs.indexOf(tab)+(dx<0?1:-1)));
+  changeTab(tabs[next]);
+ }
+ async function requestInstall(){
+  if(installEvent){await installEvent.prompt();const choice=await installEvent.userChoice;if(choice.outcome==='accepted')setInstallEvent(null)}
+  else setSheet({kind:'install'});
  }
  async function uploadAvatar(file:File){
   if(!db||!user||!imageProfile)return;
@@ -175,8 +269,6 @@ function App(){
   catch(e){if((e as Error).name!=='AbortError')fail(e)}
  }
  function goHome(){setDemoMode(false);setGame(null);setGuest(null);setGuestToken('');history.replaceState(null,'',location.pathname);setSheet({kind:'none'});setTab('table');if(user)void refreshHome()}
- function onSwipeStart(e:React.TouchEvent){if((e.target as HTMLElement).closest('button,input,textarea,select,canvas,.sheet'))return;touchX.current=e.touches[0].clientX}
- function onSwipeEnd(e:React.TouchEvent){if(touchX.current===null)return;const delta=e.changedTouches[0].clientX-touchX.current;touchX.current=null;if(Math.abs(delta)<65)return;const tabs:['table','cashout','settle']=['table','cashout','settle'];const i=tabs.indexOf(tab);setTab(tabs[Math.min(2,Math.max(0,i+(delta<0?1:-1)))])}
  const seatBalances=activeSeats.map(s=>{const tx=sums.live.filter(t=>t.seat_id===s.id);const total=tx.filter(t=>t.kind==='buyin').reduce((n,t)=>n+Number(t.amount_cents),0);const cashout=tx.filter(t=>t.kind==='cashout').reduce((n,t)=>n+Number(t.amount_cents),0);return {...s,total,cashout,hasCashout:tx.some(t=>t.kind==='cashout'),count:tx.filter(t=>t.kind==='buyin').length}});
  const closed=game?.status==='closed'||guest?.game.status==='closed';
  const titleText=game?.title||guest?.game.title||'';
