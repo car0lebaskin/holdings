@@ -244,3 +244,22 @@ form>.primary-btn{margin-top:24px}
 @keyframes edgeImpact{0%{opacity:0;filter:blur(9px)}17%{opacity:1;filter:blur(4px)}55%{opacity:.85;filter:blur(7px)}100%{opacity:0;filter:blur(16px)}}
 @media(max-width:365px){.sheet .select-shell select{font-size:17px;padding-left:15px}.history-item.wobble-edit .game-row{padding-left:33px}.history-remove{left:4px}}
 @media(prefers-reduced-motion:reduce){.history-item.wobble-edit .game-row,.home-section-panel,.edge-glow{animation:none!important}.home-swipe-surface{transition:none!important}}
+
+
+/* Signature workflow: a fixed action area avoids scrolling after signing. */
+.sheet{display:flex;flex-direction:column;max-height:min(94dvh,860px);overflow:hidden;padding-bottom:0}
+.sheet-grab,.sheet-head{flex-shrink:0}
+.sheet-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;padding:0 2px calc(26px + env(safe-area-inset-bottom));scrollbar-width:thin}
+.sheet:has(.sheet-action-footer) .sheet-scroll{padding-bottom:14px}
+.sheet-action-footer{flex:0 0 auto;z-index:2;position:relative;padding:12px 0 calc(16px + env(safe-area-inset-bottom));background:#1c1c22;border-top:1px solid #34343e;box-shadow:0 -10px 22px #1c1c22}
+.sheet-action-footer>.primary-btn{margin-top:0;min-height:54px}
+.sheet-action-footer>.primary-btn:disabled{background:#32477b;color:#b5bdd0;opacity:1}
+.sig-hint{z-index:2}
+.sig-frame .sig-hint{user-select:none;-webkit-user-select:none}
+.sig-footer{min-height:34px}
+/* An SVG icon can look optically off-center due to its glyph geometry.
+   A centered 11px bar is pixel-consistent across browser renderers. */
+.history-remove{display:flex;justify-content:center;align-items:center;padding:0;line-height:0}
+.history-remove:before{content:"";display:block;width:11px;height:2.5px;border-radius:2px;background:#fff;flex:none}
+.history-remove svg{display:none}
+@media(prefers-reduced-motion:reduce){.sheet-action-footer{transition:none}}
