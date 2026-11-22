@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {SignaturePad} from './components/SignaturePad';
+import {Standings} from './components/Standings';
 import {calculateSettlement, exportSummary} from './lib/settlement.mjs';
 import { createRoot } from 'react-dom/client';
 import { createClient, type User } from '@supabase/supabase-js';
@@ -41,6 +42,9 @@ function App(){
  const [emailSent,setEmailSent]=useState(false);
  const [games,setGames]=useState<Game[]>([]);
  const [profiles,setProfiles]=useState<Profile[]>([]);
+ const [statSeats,setStatSeats]=useState<Seat[]>([]);
+ const [statLedger,setStatLedger]=useState<Ledger[]>([]);
+ const [statsLoading,setStatsLoading]=useState(false);
  const [game,setGame]=useState<Game|null>(null);
  const [seats,setSeats]=useState<Seat[]>([]);
  const [ledger,setLedger]=useState<Ledger[]>([]);
@@ -115,7 +119,21 @@ function App(){
    const [g,p]=await Promise.all([db.from('holdings_games').select('*').eq('owner_id',user.id).order('started_at',{ascending:false}),db.from('holdings_profiles').select('*').eq('owner_id',user.id).order('display_name')]);
    if(g.error)throw g.error;if(p.error)throw p.error;
    setGames(g.data as Game[]);setProfiles(p.data as Profile[]);
+   void refreshStats((g.data as Game[]).filter(game=>game.status==='closed'));
   }catch(e){setError(errMsg(e))}
+ }
+ async function refreshStats(closed:Game[]){
+  if(!db||!user)return;
+  const ids=closed.map(g=>g.id);if(!ids.length){setStatSeats([]);setStatLedger([]);setStatsLoading(false);return}
+  setStatsLoading(true);
+  try{
+   const [s,t]=await Promise.all([
+    db.from('holdings_seats').select('id,game_id,profile_id,display_name_snapshot').in('game_id',ids),
+    db.from('holdings_ledger').select('game_id,seat_id,kind,amount_cents,voided_at').in('game_id',ids)
+   ]);
+   if(s.error)throw s.error;if(t.error)throw t.error;
+   setStatSeats(s.data as Seat[]);setStatLedger(t.data as Ledger[]);
+  }catch(e){setError(errMsg(e))}finally{setStatsLoading(false)}
  }
  async function openGame(item:Game){
   if(!db||!user)return;
@@ -214,7 +232,7 @@ function App(){
    const {data,error:e}=await db.from('holdings_games').update({status:'closed'}).eq('id',game.id).eq('status','live').select('*').single();
    if(e)throw e;
    setGame(data as Game);setGames(prev=>prev.map(g=>g.id===data.id?data as Game:g));
-   setSheet({kind:'export'});setTab('settle');noticeNow('Game closed; results saved to history');
+   setSheet({kind:'export'});setTab('settle');void refreshHome();noticeNow('Game closed; results saved to history');
   }catch(e){fail(e)}finally{busy.current=false;setLoading(false)}
  }
  function downloadSummary(){
@@ -354,7 +372,7 @@ function App(){
   </>:!user?<div className="auth-view"><div className="intro-label">YOUR PRIVATE LEDGER</div><h1>Every chip.<br/>Accounted for.</h1><p>A cleaner way to run your home game. Record buy-ins, track results and let friends watch live.</p><form onSubmit={async e=>{e.preventDefault();if(!db)return;setLoading(true);setError('');const {error:e2}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});setLoading(false);if(e2)setError(e2.message);else setEmailSent(true)}}><label>Email address</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="email" placeholder="you@example.com"/><button className="primary-btn" disabled={loading}>{loading?'Sending…':emailSent?'Send another login link':'Sign in with email'} <ArrowRight size={17}/></button>{emailSent&&<div className="info-note"><Check size={17}/> Check your email for a secure sign-in link.</div>}</form><button className="outline-wide" type="button" onClick={startDemo}>Explore demo without signing in <ArrowRight size={17}/></button><p className="muted-detail">Demo uses sample data. Your existing Holdings records are not affected.</p>{!standalone&&<button type="button" className="install-cta" onClick={()=>void requestInstall()}><Smartphone size={18}/> Install on your phone <ArrowRight size={17}/></button>}</div>:
   <><div className="welcome"><div className="eyebrow">YOUR PRIVATE LEDGER</div><h1>Good evening.</h1><p>Every buy-in signed. Every chip accounted for.</p></div>{!standalone&&<button className="install-cta" onClick={()=>void requestInstall()}><Smartphone size={19}/> Install Holdings on your phone <ArrowRight size={17}/></button>}<section className="overview-card"><div className="eyebrow blue-label">YOUR GAMES</div><strong>{games.length}</strong><p>{games.filter(x=>x.status==='live').length} live · {games.filter(x=>x.status==='closed').length} completed</p></section><div className="section-head"><h2>{section==='home'?'Your tables':section==='stats'?'Player overview':'Game history'}</h2>{section==='home'&&<button className="small-action" onClick={()=>setSheet({kind:'game'})}><Plus size={16}/> New game</button>}</div>
    {(section==='home'?games.filter(x=>x.status==='live'):section==='history'?games.filter(x=>x.status==='closed'):[]).map(x=><button className="game-row" key={x.id} onClick={()=>void openGame(x)}><div className="game-icon">♠</div><div className="player-main"><strong>{x.title}</strong><span>{new Date(x.started_at).toLocaleDateString()} · {x.currency} · {x.stakes||'Cash game'}</span></div><span className={'live-pill '+(x.status==='closed'?'muted':'')}><i/>{x.status==='closed'?'Closed':'Live'}</span><ChevronRight size={19} color="#787887"/></button>)}
-   {section==='stats'&&<div className="empty-frame"><TrendingUp size={32}/><h3>Player insights</h3><p>{profiles.length} saved player profiles. Historical player analytics will be unlocked after the ledger migration is validated.</p></div>}
+   {section==='stats'&&<Standings games={games} seats={statSeats} transactions={statLedger} loading={statsLoading}/>}
    {section!=='stats'&&!games.some(x=>section==='home'?x.status==='live':x.status==='closed')&&<div className="empty-frame"><CircleDollarSign size={32}/><h3>{section==='home'?'Ready for the next game?':'No completed games yet'}</h3><p>{section==='home'?'Open your first Holdings table.':'Finished games appear here.'}</p></div>}
    <nav className="bottom-nav" aria-label="Main navigation"><button className={section==='home'?'on':''} onClick={()=>setSection('home')}><Home size={22}/> Home</button><button className={section==='stats'?'on':''} onClick={()=>setSection('stats')}><TrendingUp size={22}/> Stats</button><button className={section==='history'?'on':''} onClick={()=>setSection('history')}><History size={22}/> History</button></nav>
   </>}
