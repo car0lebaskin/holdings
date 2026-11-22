@@ -1,4 +1,3 @@
-import type { } from '@supabase/supabase-js';
 export type SummaryGame={title:string;currency:string;stakes:string;started_at:string;status:string};
 export type SummaryResult={players:{name:string;buyin:number;net:number|null}[];transfers:{from:string;to:string;amount:number}[];totalBuyin:number;totalCashout:number;discrepancy:number;ready:boolean};
 const fmt=(v:number,currency:string)=>currency+' '+(Math.abs(v)/100).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});
