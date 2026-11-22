@@ -5,6 +5,11 @@ on:
     paths:
       - 'v2/**'
       - '.github/workflows/holdings-v2-checks.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'v2/**'
+      - '.github/workflows/holdings-v2-checks.yml'
   workflow_dispatch:
 permissions:
   contents: read
