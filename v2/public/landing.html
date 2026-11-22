@@ -92,7 +92,7 @@
 <section class="section" id="why" aria-labelledby="why-heading"><div class="wrap">
  <div class="section-intro"><span class="eyebrow">Built for the table, not the accountant</span><h2 id="why-heading">A better game starts with <span class="blue">better records.</span></h2><p class="section-description">The hard part isn't adding up chips. It's knowing everyone is looking at the same numbers.</p></div>
  <div class="feature-cards">
-  <article class="feature"><span class="feat-num">01 / RECORD</span><span class="feat-icon"><svg viewBox="0 0 24 24"><path d="M12 4v16m-5-13h9a4 4 0 1 1 0 8H7m-3 5h16"/></svg></span><h3>Nothing gets lost in the shuffle.</h3><p>Keep buy-ins, rebuys and cash-outs in one running ledger. Optional signed acknowledgments add context to a transaction.</p></article>
+  <article class="feature"><span class="feat-num">01 / RECORD</span><span class="feat-icon"><svg viewBox="0 0 24 24"><path d="M12 4v16m-5-13h9a4 4 0 1 1 0 8H7m-3 5h16"/></svg></span><h3>Nothing gets lost in the shuffle.</h3><p>Keep buy-ins, rebuys and cash-outs in one running ledger. Signed acknowledgments document buy-ins and cash-outs.</p></article>
   <article class="feature"><span class="feat-num">02 / SHARE</span><span class="feat-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="9" r="3"/><path d="M6.5 19c.8-3.2 3-4.6 5.5-4.6s4.7 1.4 5.5 4.6"/></svg></span><h3>Let players see for themselves.</h3><p>Share read-only views of player figures. Guests can check what's recorded without access to the host's controls.</p></article>
   <article class="feature"><span class="feat-num">03 / SETTLE</span><span class="feat-icon"><svg viewBox="0 0 24 24"><path d="M3 8h18M3 16h18m-7-11 4 3-4 3M10 13l-4 3 4 3"/></svg></span><h3>Close the night with clarity.</h3><p>Reconcile the ledger, see everyone's net result and produce a clear plan for who owes whom. No money moves through Holdings.</p></article>
  </div>
@@ -137,7 +137,7 @@
    <section class="demo-view" id="view-settle" role="tabpanel" aria-labelledby="tab-settle" hidden>
     <div class="demo-top"><div><small>FINAL STEP / SAMPLE CASH-OUTS</small><h3>A clean ending.</h3></div><span class="chip">Example result</span></div>
     <div class="demo-empty" id="settle-intro">Cash-outs happen after the game. Simulate example cash-outs to see a reconciled ledger and who pays whom.<div style="margin-top:16px"><button class="small-primary" type="button" id="simulate">Simulate cash-outs</button></div></div>
-    <div id="settle-results" hidden><div class="demo-table-head"><span>Player result</span><span>Net</span></div><div id="result-rows"></div><div class="settlement-total"><div><strong id="reconcile-title">Ledger reconciled</strong><br><span id="reconcile-detail">Buy-ins equal cash-outs</span></div><strong id="reconcile-value">RM 0 difference</strong></div><div class="demo-table-head"><span>Suggested transfers</span><span>Amount</span></div><div id="transfer-rows"></div><p class="settlement-disclaimer">Example only. Cash-outs are simulated and adjusted to include newly added buy-ins. The payment plan is computed from each player's net; Holdings does not transfer funds.</p><button class="small-primary" type="button" id="simulate-again">Recalculate example</button></div>
+    <div id="settle-results" hidden><div class="demo-table-head"><span>Player result</span><span>Net</span></div><div id="result-rows"></div><div class="settlement-total"><div><strong id="reconcile-title">Ledger reconciled</strong><br><span id="reconcile-detail">Buy-ins equal cash-outs</span></div><strong id="reconcile-value">RM 0 difference</strong></div><div class="demo-table-head"><span>Suggested transfers</span><span>Amount</span></div><div id="transfer-rows"></div><p class="settlement-disclaimer">Example only. Cash-outs are simulated and adjusted to include newly added buy-ins. The payment plan is computed from each player's net; Holdings does not transfer funds.</p></div>
     <button class="reset-demo" id="reset-demo" type="button">Reset sample table</button>
    </section>
   </div>
@@ -171,7 +171,7 @@
   <details><summary>Does everyone have to sign up?<svg viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></svg></summary><p>No. The host signs in to manage the game. Guests can open a shared read-only link for the figures available to them. A shared link is not proof of the viewer's identity.</p></details>
   <details><summary>Can a player change the numbers?<svg viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></svg></summary><p>No. Guest links are read-only. Only the authorised host manages the table and its records.</p></details>
   <details><summary>Does Holdings send or receive money?<svg viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></svg></summary><p>No. Holdings records financial figures and proposes who should pay whom. It never holds, sends or receives player funds.</p></details>
-  <details><summary>What do signatures mean?<svg viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></svg></summary><p>Hosts can collect an on-screen acknowledgment as part of a transaction record. A signature is evidence of acknowledgment, not a legal guarantee that a disputed payment occurred.</p></details>
+  <details><summary>What do signatures mean?<svg viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></svg></summary><p>Players sign on screen to acknowledge recorded buy-ins and cash-outs. A signature records an acknowledgment, not proof of legal identity or confirmation that funds actually changed hands.</p></details>
   <details><summary>Does it work offline?<svg viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></svg></summary><p>Holdings is currently designed around an online web app. Some signed transactions can be queued during a connection interruption in the preview, but complete offline operation is not yet supported.</p></details>
   <details><summary>Can I use Holdings on my phone?<svg viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></svg></summary><p>Yes, the web app is mobile-friendly. Dedicated App Store and Google Play downloads are not yet available.</p></details>
  </div>
@@ -279,7 +279,6 @@
   });
   byId('player-select').addEventListener('change',renderPlayer);
   byId('simulate').addEventListener('click',simulate);
-  byId('simulate-again').addEventListener('click',renderSettlement);
   byId('reset-demo').addEventListener('click',function(){
     people=JSON.parse(JSON.stringify(base));demoClosed=false;marked=-1;
     byId('settle-intro').hidden=false;byId('settle-results').hidden=true;
@@ -324,7 +323,7 @@
     if(!pending||!signed)return;
     var i=pending.index,amount=pending.amount;
     people[i].entries.push(amount);marked=i;
-    dialog.close();renderHost();renderPlayer();
+    dialog.close();byId('player-select').value=String(i);renderHost();renderPlayer();
     byId('demo-feedback').textContent=people[i].name+' acknowledged '+money(amount)+'. Added to the sample ledger.';
     showToast('Sample buy-in recorded. Switch to Player view to verify.');
     setTimeout(function(){marked=-1;renderHost()},600);
