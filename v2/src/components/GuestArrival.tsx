@@ -1,4 +1,4 @@
-import {ArrowLeft,ArrowRight,Check,ChevronRight,ShieldCheck,Users} from 'lucide-react';
+import {ArrowLeft,ArrowRight,ChevronRight,ShieldCheck,Users} from 'lucide-react';
 import {guestPlayerTotals} from '../lib/guestTotals.mjs';
 
 type GuestSnapshot={
@@ -23,7 +23,7 @@ export function GuestArrival({snapshot,selectedSeat,onSelect,onViewTable,resolve
  const isClosed=snapshot.game.status==='closed';
  return <div className="guest-arrival">
   <div className="guest-game-top">
-   <div className="eyebrow">HOL­DINGS · GUEST ACCESS</div>
+   <div className="eyebrow">HOLDINGS · GUEST ACCESS</div>
    <span className={'live-pill '+(isClosed?'muted':'')}><i/>{isClosed?'Closed':'Live table'}</span>
   </div>
   <h1 className="guest-game-title">{snapshot.game.title}</h1>
