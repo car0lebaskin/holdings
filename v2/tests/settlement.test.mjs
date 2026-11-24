@@ -9,7 +9,7 @@ test('balanced three-player table yields exact transfers and P&L',()=>{
  assert.equal(r.ready,true);assert.equal(r.discrepancy,0);
  assert.deepEqual(r.transfers,[{from:'Blair',to:'Alex',amount:5000},{from:'Blair',to:'Casey',amount:5000}]);
  const str=exportSummary({title:'Friday',currency:'RM',started_at:'2026-01-01T00:00:00Z',status:'closed',stakes:'1/2'},r);
- assert.ok(str.includes('Blair pays Alex: RM 50.00'));assert.ok(str.includes('Alex: +RM 50.00'));
+ assert.ok(str.includes('Blair pays Alex: RM 50.00'));assert.ok(str.includes('Alex: In RM 100.00 · Out RM 150.00 · Net +RM 50.00'));
 });
 test('does not unlock when someone has chips and no cash-out',()=>{
  const r=calculateSettlement(seats,[row('a','buyin',10000),row('b','buyin',10000),row('a','cashout',20000)]);
@@ -23,4 +23,18 @@ test('voided transactions are not counted and busted players count as cashed out
  const r=calculateSettlement(seats.slice(0,2),[row('a','buyin',10000),row('b','buyin',10000),row('b','buyin',5000,true),row('a','cashout',20000),row('b','cashout',0)]);
  assert.equal(r.ready,true);assert.equal(r.totalBuyin,20000);
  assert.deepEqual(r.transfers,[{from:'Blair',to:'Alex',amount:10000}]);
+});
+
+test('cash-out is displayed separately from net result, including a zero payout',()=>{
+ const r=calculateSettlement(seats.slice(0,2),[
+  row('a','buyin',10000),row('b','buyin',10000),
+  row('a','cashout',20000),row('b','cashout',0)
+ ]);
+ const a=r.players.find(p=>p.id==='a');
+ const b=r.players.find(p=>p.id==='b');
+ assert.equal(a.cashout,20000);assert.equal(a.net,10000);
+ assert.equal(b.cashout,0);assert.equal(b.net,-10000);
+ const txt=exportSummary({title:'Test',currency:'RM',started_at:'2026-11-24T00:00:00Z',status:'closed',stakes:''},r);
+ assert.ok(txt.includes('Alex: In RM 100.00 · Out RM 200.00 · Net +RM 100.00'));
+ assert.ok(txt.includes('Blair: In RM 100.00 · Out RM 0.00 · Net -RM 100.00'));
 });
