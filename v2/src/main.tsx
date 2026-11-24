@@ -21,7 +21,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | un
 const db = supabaseUrl && supabaseKey ? createClient(supabaseUrl,supabaseKey) : null;
 
 type Game={id:string;owner_id:string;title:string;stakes:string;currency:string;default_buyin_cents:number;status:'live'|'closed';invite_token:string;started_at:string;deleted_at:string|null};
-type Profile={id:string;owner_id:string;display_name:string;avatar_path:string|null};
+type Profile={id:string;owner_id:string;display_name:string;avatar_path:string|null;archived_at?:string|null};
 type Seat={id:string;game_id:string;profile_id:string;display_name_snapshot:string;created_at:string};
 type Ledger={id:string;game_id:string;seat_id:string;owner_id:string;kind:'buyin'|'cashout';amount_cents:number;voided_at:string|null;signature_path:string|null;created_at:string};
 type GuestSnapshot={scope?:'table'|'player';game:{id:string;title:string;stakes:string;currency:string;status:string;started_at:string};players:{seat_id:string;name:string;avatar_path:string|null}[];transactions:{id:string;seat_id:string;kind:'buyin'|'cashout';amount_cents:number;voided:boolean;created_at:string}[]};
@@ -88,6 +88,7 @@ function App(){
  const [queueBusy,setQueueBusy]=useState(false);
  const [backupOpen,setBackupOpen]=useState(false);
  const [profilesOpen,setProfilesOpen]=useState(false);
+ const [manageSeatProfiles,setManageSeatProfiles]=useState(false);
  const [dragX,setDragX]=useState(0);
  const [swipeDir,setSwipeDir]=useState<'left'|'right'>('left');
  const [installEvent,setInstallEvent]=useState<InstallEvent|null>(null);
@@ -323,6 +324,7 @@ function App(){
   }catch(e){fail(e)}finally{busy.current=false;setLoading(false)}
  }
  function openSeatSheet(){
+  setManageSeatProfiles(false);
   seatOpRef.current=null;
   setPlayerName('');
   setSelectedProfile('');
@@ -330,6 +332,22 @@ function App(){
   setError('');
   setAmount(String((game?.default_buyin_cents||10000)/100));
   setSheet({kind:'seat'});
+ }
+ async function removeEmptySeat(seatId:string,name:string){
+  if(!db||!game||!user||busy.current||game.status!=='live')return;
+  if(ledger.some(t=>t.seat_id===seatId)||pendingOps.some(t=>t.seatId===seatId)){
+   setError('Signed or pending entries exist. Correct the ledger instead of removing this seat.');return;
+  }
+  if(!window.confirm('Remove '+name+' from this table? The saved player profile stays available.'))return;
+  busy.current=true;setLoading(true);setError('');
+  try{
+   const {data,error:e}=await db.rpc('holdings_remove_empty_seat',{p_seat_id:seatId});
+   if(e)throw e;
+   if(!data?.removed||data.seat_id!==seatId)throw new Error('Seat removal was not confirmed');
+   setSeats(prev=>prev.filter(s=>s.id!==seatId));
+   noticeNow('Player removed from this table');
+  }catch(e){fail(e)}
+  finally{busy.current=false;setLoading(false)}
  }
  async function seatWithFirstBuyin(){
   if(!db||!game||!user||busy.current)return;
@@ -626,6 +644,9 @@ function App(){
        <div className="player-side">
         {s.hasCashout?<span className="mini-status paid">Cashed out</span>:s.count?<span className="mini-status">Playing</span>:<span className="mini-status quiet">Seated</span>}
         {game&&!closed&&!s.hasCashout&&<button className="row-arrow" title="Record buy-in" aria-label={'Record buy-in for '+s.display_name_snapshot} onClick={()=>openTransaction('buyin',s.id)}><Plus size={19}/></button>}
+         {game&&!closed&&!ledger.some(t=>t.seat_id===s.id)&&!pendingOps.some(t=>t.seatId===s.id)&&<button
+          className="remove-empty-seat" type="button" title="Remove empty seat" aria-label={'Remove '+s.display_name_snapshot+' from table'}
+          onClick={()=>void removeEmptySeat(s.id,s.display_name_snapshot)}><Trash2 size={15}/></button>}
        </div>
       </article>)}
      {game&&!closed&&<button className="primary-btn add-transaction" onClick={openSeatSheet}><Plus size={19}/> Seat player</button>}
@@ -730,10 +751,20 @@ function App(){
       <div className="select-shell">
        <select aria-label="Choose existing player" value={selectedProfile} onChange={e=>{seatOpRef.current=null;setSelectedProfile(e.target.value);if(e.target.value)setPlayerName('')}}>
         <option value="">New player or select existing</option>
-        {profiles.filter(p=>!seats.some(s=>s.profile_id===p.id)).map(p=><option value={p.id} key={p.id}>{p.display_name}</option>)}
+        {profiles.filter(p=>!p.archived_at&&!seats.some(s=>s.profile_id===p.id)).map(p=><option value={p.id} key={p.id}>{p.display_name}</option>)}
        </select>
        <ChevronDown size={20} aria-hidden="true" className="select-chevron"/>
       </div>
+      <button type="button" className="profile-manager-link" onClick={()=>setManageSeatProfiles(v=>!v)}>
+       {manageSeatProfiles?'Done managing saved players':'Edit / remove saved players'} <ChevronRight size={15}/>
+      </button>
+      {manageSeatProfiles&&user&&db&&<div className="seat-profiles-manager">
+       <ProfileEditor db={db} ownerId={user.id} profiles={profiles}
+        onUpdated={profile=>{
+         setProfiles(p=>p.map(x=>x.id===profile.id?profile:x));
+         if(profile.archived_at&&selectedProfile===profile.id){setSelectedProfile('');setSignatureBlob(null);seatOpRef.current=null}
+        }}/>
+      </div>}
       {!selectedProfile&&<>
        <label>New player name</label>
        <input value={playerName} maxLength={100} onChange={e=>{seatOpRef.current=null;setPlayerName(e.target.value)}} placeholder="Full name or nickname" autoComplete="off"/>
