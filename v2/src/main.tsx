@@ -658,8 +658,11 @@ function App(){
        <div className="player-main"><strong>{s.display_name_snapshot}</strong><span>In for {fmt(s.total,curr)}</span>
         {game&&<button className="ledger-link" onClick={()=>void openLedger(s.id)}>Signed ledger <ChevronRight size={13}/></button>}
        </div>
-       {s.hasCashout?<div className="cashout-result"><strong className={s.cashout-s.total>=0?'amount-positive':'amount-negative'}>{s.cashout-s.total>=0?'+':'−'}{fmt(Math.abs(s.cashout-s.total),curr)}</strong>
-          {game&&!closed&&<button className="recount-action" onClick={()=>{const tx=ledger.find(x=>x.seat_id===s.id&&x.kind==='cashout'&&!x.voided_at);if(tx)startCorrection(tx)}}><RotateCcw size={13}/> Recount</button>}</div>
+       {s.hasCashout?<div className="cashout-result">
+          <div className="cashout-breakdown-line"><small>Cashed out</small><strong>{fmt(s.cashout,curr)}</strong></div>
+          <div className="cashout-breakdown-line"><small>Net P&amp;L</small><strong className={s.cashout-s.total>0?'amount-positive':s.cashout-s.total<0?'amount-negative':''}>{s.cashout===s.total?'Even':(s.cashout-s.total>0?'+':'−')+fmt(Math.abs(s.cashout-s.total),curr)}</strong></div>
+          {game&&!closed&&<button className="recount-action" onClick={()=>{const tx=ledger.find(x=>x.seat_id===s.id&&x.kind==='cashout'&&!x.voided_at);if(tx)startCorrection(tx)}}><RotateCcw size={13}/> Recount</button>}
+         </div>
         :game&&!closed?<button className="outline-btn" onClick={()=>openTransaction('cashout',s.id)}>Cash out</button>:<span className="mini-status quiet">In play</span>}
       </article>)}
      {!seatBalances.some(s=>s.total>0)&&<div className="empty-frame"><Wallet size={30}/><p>Cash-outs become available after the first buy-in.</p></div>}
@@ -671,13 +674,20 @@ function App(){
        <div><span>Bank difference</span><strong className={settlement.discrepancy===0?'amount-positive':'amount-negative'}>{settlement.discrepancy>0?'+':''}{fmt(settlement.discrepancy,curr)}</strong></div>
        <div><span>Players cashed out</span><strong>{settlement.cashedOutCount}/{settlement.participants.length}</strong></div>
       </div>
+      <div className="section-head"><h2>Player results</h2><span className="stats-count">{settlement.participants.length} players</span></div>
+      {settlement.players.filter((p:SettledPlayer)=>p.buyin>0).sort((a:SettledPlayer,b:SettledPlayer)=>(b.net??0)-(a.net??0)).map((s:SettledPlayer)=>
+       <article className="result-row settlement-player-result" key={s.id}>
+        <div className="settlement-player-name"><strong>{s.name}</strong><small>Buy-ins {fmt(s.buyin,curr)}</small></div>
+        <div className="settlement-player-figures">
+         <span>{s.cashout===null?'Not cashed out':'Cashed out '+fmt(s.cashout,curr)}</span>
+         <strong className={s.net===null?'':s.net>0?'amount-positive':s.net<0?'amount-negative':''}>
+          {s.net===null?'Awaiting payout':s.net===0?'Even':(s.net>0?'+':'−')+fmt(Math.abs(s.net),curr)}
+         </strong>
+         {s.net!==null&&<small>Net P&amp;L</small>}
+        </div>
+       </article>)}
       {!settlement.allOut?<div className="info-note"><ShieldCheck size={17}/> Settlement unlocks when every player with a buy-in has cashed out. {settlement.cashedOutCount} of {settlement.participants.length} complete.</div>:
        <>
-        <div className="section-head"><h2>Player results</h2></div>
-        {settlement.players.filter((p:SettledPlayer)=>p.buyin>0).sort((a:SettledPlayer,b:SettledPlayer)=>(b.net??0)-(a.net??0)).map((s:SettledPlayer)=>
-         <article className="result-row" key={s.id}><span>{s.name}</span>
-          <strong className={(s.net??0)>0?'amount-positive':(s.net??0)<0?'amount-negative':''}>{s.net===0?'Even':(s.net??0)>0?'+':'−'}{s.net===0?'':fmt(Math.abs(s.net||0),curr)}</strong>
-         </article>)}
         <div className="section-head"><h2>Who pays whom</h2></div>
         {!settlement.transfers.length?<div className="empty-mini">No transfers needed.</div>:settlement.transfers.map((t,i)=>
           <div key={i} className="transfer-row"><div><strong>{t.from}</strong><span>pays</span><strong>{t.to}</strong></div><b>{fmt(t.amount,curr)}</b></div>)}
@@ -792,7 +802,22 @@ function App(){
       <label>{sheet.kind==='buyin'?'Buy-in amount':'Final stack'} ({curr})</label>
       <input className="amount-input" type="number" inputMode="decimal" step="0.01" min="0" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0.00" required/>
       {sheet.kind==='buyin'&&<div className="quick-amounts">{[1,2,3].map(n=><button type="button" key={n} onClick={()=>setAmount(String(n*(game?.default_buyin_cents||10000)/100))}>{fmt(n*(game?.default_buyin_cents||10000),curr)}</button>)}</div>}
-      {sheet.kind==='cashout'&&<div className="cashout-net">Net result: <strong className={(Number(amount||0)*100-(settlement.players.find((p:SettledPlayer)=>p.id===sheet.seatId)?.buyin||0))>=0?'amount-positive':'amount-negative'}>{fmt(Math.round(Number(amount||0)*100)-(settlement.players.find((p:SettledPlayer)=>p.id===sheet.seatId)?.buyin||0),curr)}</strong></div>}
+      {sheet.kind==='cashout'&&<div className="cashout-preview">
+        {(()=>{
+         const total=settlement.players.find((p:SettledPlayer)=>p.id===sheet.seatId)?.buyin||0;
+         const out=amount.trim()?toCents(amount):null;
+         const profit=out===null?null:out-total;
+         return <>
+          <div><span>Total buy-ins</span><strong>{fmt(total,curr)}</strong></div>
+          <div><span>Cash-out / payout</span><strong>{out===null?'Enter amount':fmt(out,curr)}</strong></div>
+          <div className="cashout-preview-net"><span>Net profit / loss</span>
+           <strong className={profit===null?'':profit>0?'amount-positive':profit<0?'amount-negative':''}>
+            {profit===null?'—':profit===0?'Even':(profit>0?'+':'−')+fmt(Math.abs(profit),curr)}
+           </strong>
+          </div>
+         </>;
+        })()}
+       </div>}
       <label>Player signature for verification</label>
       <p className="subtle-copy">The player signs to acknowledge this recorded amount. It is not proof of legal identity.</p>
       <SignaturePad key={(sheet.kind||'')+'-'+(sheet.seatId||'')} onChange={setSignatureBlob} resetId={(sheet.kind||'')+'-'+(sheet.seatId||'')}/>
