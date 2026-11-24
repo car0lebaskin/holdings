@@ -44,7 +44,7 @@ export function exportSummary(game, calculation) {
       ? (calculation.discrepancy === 0 ? 'Bank reconciled' : 'BANK DIFFERENCE: '+fmt(Math.abs(calculation.discrepancy)))
       : 'IN PROGRESS — '+calculation.cashedOutCount+'/'+calculation.participants.length+' cashed out',
     '', 'PLAYER RESULTS',
-    ...sorted.map(p=>'  '+p.name+': '+(p.net === null ? 'Not cashed out' : signed(p.net))),
+    ...sorted.map(p=>'  '+p.name+': In '+fmt(p.buyin)+' · Out '+(p.cashout===null?'Pending':fmt(p.cashout))+' · Net '+(p.net===null?'Not settled':signed(p.net))),
     '', 'SETTLEMENT — '+calculation.transfers.length+' transfer(s)',
     ...(calculation.allOut && calculation.transfers.length
       ? calculation.transfers.map(t=>'  '+t.from+' pays '+t.to+': '+fmt(t.amount))
