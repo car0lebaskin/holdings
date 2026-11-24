@@ -720,11 +720,7 @@ function App(){
       <details open={profilesOpen} onToggle={e=>setProfilesOpen((e.currentTarget as HTMLDetailsElement).open)}>
        <summary>Manage player profiles <ChevronRight size={18}/></summary>
        {user&&db&&<ProfileEditor db={db} ownerId={user.id} profiles={profiles}
-        onUpdated={profile=>{
-         setProfiles(p=>p.map(x=>x.id===profile.id?profile:x));
-         if(game?.status==='live'&&!profile.archived_at)
-          setSeats(p=>p.map(s=>s.profile_id===profile.id?{...s,display_name_snapshot:profile.display_name}:s));
-        }}/>}
+        onUpdated={profile=>setProfiles(p=>p.map(x=>x.id===profile.id?profile:x))}/>}
       </details>
      </div>
      {!liveGames.length&&<div className="empty-frame"><CircleDollarSign size={32}/><h3>{visibleGames.length?'No live tables':'Ready for your first game?'}</h3><p>{visibleGames.length?'Your '+closedGames.length+' completed game'+(closedGames.length===1?' is':'s are')+' in History. Start another table when ready.':'Create a table to record signed buy-ins and player results.'}</p></div>}
