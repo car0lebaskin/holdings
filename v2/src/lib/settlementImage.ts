@@ -1,5 +1,5 @@
 export type SummaryGame={title:string;currency:string;stakes:string;started_at:string;status:string};
-export type SummaryResult={players:{name:string;buyin:number;net:number|null}[];transfers:{from:string;to:string;amount:number}[];totalBuyin:number;totalCashout:number;discrepancy:number;ready:boolean};
+export type SummaryResult={players:{name:string;buyin:number;cashout:number|null;net:number|null}[];transfers:{from:string;to:string;amount:number}[];totalBuyin:number;totalCashout:number;discrepancy:number;ready:boolean};
 const fmt=(v:number,currency:string)=>currency+' '+(Math.abs(v)/100).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});
 const truncate=(ctx:CanvasRenderingContext2D,text:string,max:number)=>{
  if(ctx.measureText(text).width<=max)return text;
@@ -9,7 +9,7 @@ export async function makeSettlementImage(game:SummaryGame,summary:SummaryResult
  if(!summary.ready||game.status!=='closed')throw new Error('Only closed, reconciled games can be shared as final settlement');
  const players=summary.players.filter(p=>p.buyin>0).sort((a,b)=>(b.net??0)-(a.net??0));
  const transfers=summary.transfers;
- const W=440;const H=388+players.length*39+Math.max(1,transfers.length)*43+76;
+ const W=440;const H=388+players.length*56+Math.max(1,transfers.length)*43+76;
  const scale=2;
  const canvas=document.createElement('canvas');canvas.width=W*scale;canvas.height=H*scale;
  const ctx=canvas.getContext('2d');if(!ctx)throw new Error('Canvas export not available');
@@ -35,7 +35,8 @@ export async function makeSettlementImage(game:SummaryGame,summary:SummaryResult
   const net=p.net??0;
   text(truncate(ctx,p.name,190),25,y,'600 16px Arial','#EDF0F8');
   text(net===0?'Even':(net>0?'+':'−')+fmt(net,game.currency),W-25,y,'700 15px Arial',net>0?'#62D9A7':net<0?'#FF988C':'#D1D6E5','right');
-  y+=39;
+  text(truncate(ctx,'In '+fmt(p.buyin,game.currency)+'   •   Out '+fmt(p.cashout??0,game.currency),390),25,y+20,'12px Arial','#A3AFC7');
+  y+=56;
  }
  y+=10;
  ctx.strokeStyle='#313748';ctx.beginPath();ctx.moveTo(25,y);ctx.lineTo(W-25,y);ctx.stroke();
